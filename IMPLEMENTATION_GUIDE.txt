@@ -1,0 +1,517 @@
+"""
+CERTIFIED PIXEL ATTRIBUTION - IMPLEMENTATION GUIDE
+===================================================
+
+Complete reference for implementing paper methodology from scratch.
+All equations mapped to code implementations.
+
+This guide helps you:
+1. Understand the paper's algorithm step-by-step
+2. Find where each equation is implemented
+3. Use the API correctly
+4. Interpret the results
+5. Extend the implementation
+
+=============================================================================
+QUICKSTART
+=============================================================================
+
+# Minimal example
+from src.models.factory import get_model
+from src.xai.attribution_unified import GradCAMUnified
+from src.certify.smoothing import RandomizedSmoothingAttributor
+
+# 1. Load model
+model, _ = get_model('resnet18', num_classes=2)
+
+# 2. Create attribution method (all return [H,W] heatmaps per Eq. 2-3)
+attr = GradCAMUnified(model)
+
+# 3. Create smoothing certification
+smoother = RandomizedSmoothingAttributor(model, 
+    lambda img, cls: attr.attribute(img, cls))
+
+# 4. Certify image
+results = smoother.certify(
+    image=torch.randn(1,3,224,224),
+    k_percent=30,            # Eq. (4): Keep top 30%
+    target_class=1,
+    sigma=0.15,              # Eq. (5): Noise std
+    tau=0.75,                # Eq. (5): Threshold
+    num_samples=100          # Eq. (5): Samples
+)
+
+# Results contain:
+# - certified_map {-1, 0, 1}           (Eq. 5)
+# - p_1, p_0 probabilities           (Eq. 5)
+# - certified_radius R = σ·Φ^(-1)(τ) (Eq. 7)
+
+=============================================================================
+DETAILED EQUATION MAPPING
+=============================================================================
+
+┌─────────────────────────────────────────────────────────────────┐
+│ Eq. (1): Classifier                                             │
+├─────────────────────────────────────────────────────────────────┤
+│ f: X → Y                                                        │
+│ Neural network mapping image to class                           │
+└─────────────────────────────────────────────────────────────────┘
+
+Implementation: src/models/factory.py
+  model, config = get_model('resnet18', num_classes=2)
+  logits = model(image)  # [B, num_classes]
+  pred = logits.argmax(dim=1)
+
+Example:
+  >>> from src.models.factory import get_model
+  >>> model, cfg = get_model('resnet18', num_classes=2)
+  >>> img = torch.randn(1, 3, 224, 224)
+  >>> logits = model(img)  # → [1, 2]
+  >>> pred = logits.argmax(dim=1)  # → [0] or [1]
+
+
+┌─────────────────────────────────────────────────────────────────┐
+│ Eq. (2-3): Attribution Method                                   │
+├─────────────────────────────────────────────────────────────────┤
+│ h(f, x, y) ∈ ℝ^{H×W}                                           │
+│ Maps each pixel to importance for predicting class y            │
+│                                                                 │
+│ Key property: h(x)[i,j] ≥ 0  (importance score)               │
+│              h(x) normalized to [0, 1]                         │
+└─────────────────────────────────────────────────────────────────┘
+
+Implementation: src/xai/attribution_unified.py
+  - Base class: AttributionMethod(ABC)
+  - Methods: IntegratedGradientsUnified, GradCAMUnified,
+            RISEUnified, OcclusionUnified
+  - Interface: attribute(image, target_class) → [H,W] ∈ [0,1]
+  - All methods return normalized heatmaps
+
+Example - Grad-CAM:
+  >>> from src.xai.attribution_unified import GradCAMUnified
+  >>> attr = GradCAMUnified(model)
+  >>> img = torch.randn(1, 3, 224, 224)
+  >>> heatmap = attr.attribute(img, target_class=1)
+  >>> print(heatmap.shape)  # → (224, 224)
+  >>> print(heatmap.min(), heatmap.max())  # → 0.0, 1.0
+
+Example - Integrated Gradients:
+  >>> from src.xai.attribution_unified import IntegratedGradientsUnified
+  >>> attr = IntegratedGradientsUnified(model)
+  >>> heatmap = attr.attribute(img, target_class=1)
+
+
+┌─────────────────────────────────────────────────────────────────┐
+│ Eq. (4): Sparsification (Segmentation Reformulation)            │
+├─────────────────────────────────────────────────────────────────┤
+│ h_K(x) = Top-K%(h(x))                                           │
+│                                                                 │
+│ Converts continuous heatmap to binary segmentation:             │
+│  1: pixel in top K% (important)                                │
+│  0: pixel not in top K% (unimportant)                          │
+│                                                                 │
+│ Algorithm:                                                      │
+│  threshold = percentile(h(x), 100 - K)                         │
+│  mask = (h(x) >= threshold)                                    │
+└─────────────────────────────────────────────────────────────────┘
+
+Implementation: RandomizedSmoothingAttributor._sparsify_topk()
+  def _sparsify_topk(heatmap, k_percent):
+      flat = heatmap.flatten()
+      threshold = np.percentile(flat, 100 - k_percent)
+      return (heatmap >= threshold).astype(np.float32)
+
+Example with visualization:
+  >>> heat = np.random.rand(224, 224)
+  >>> mask_50 = (heat >= np.percentile(heat, 50)).astype(float)
+  >>> mask_30 = (heat >= np.percentile(heat, 70)).astype(float)
+  >>> print(np.mean(mask_50))  # ≈ 0.50 (50% are 1)
+  >>> print(np.mean(mask_30))  # ≈ 0.30 (30% are 1)
+
+Key insight:
+  - Enables majority voting (can't vote on continuous values)
+  - Higher K = easier to certify (more pixels marked important)
+  - Lower K = harder to certify (fewer pixels marked important)
+
+
+┌─────────────────────────────────────────────────────────────────┐
+│ Eq. (5): Randomized Smoothing & Certification                   │
+├─────────────────────────────────────────────────────────────────┤
+│ Algorithm:                                                      │
+│                                                                 │
+│ 1. Sample n times:                                              │
+│    For t = 1..n:                                                │
+│      ε_t ~ N(0, σ²I)              [Gaussian noise]            │
+│      x_t = clip(x + ε_t, [0,1])   [Noisy image]               │
+│      heat_t = h(f, x_t)            [Attribution]              │
+│      mask_t = h_K(x_t)             [Sparsify]                 │
+│                                                                 │
+│ 2. Estimate per-pixel probabilities:                            │
+│    p_1[i] = |{t: mask_t[i]=1}| / n                            │
+│    p_0[i] = |{t: mask_t[i]=0}| / n = 1 - p_1[i]             │
+│                                                                 │
+│ 3. Threshold-based certification:                               │
+│    For each pixel i:                                            │
+│      If p_1[i] ≥ τ → cert[i] = 1  (certified important)       │
+│      Else if p_0[i] ≥ τ → cert[i] = 0 (certified unimportant) │
+│      Else → cert[i] = ⊘  (abstain, uncertain)                 │
+│                                                                 │
+│ Output: cert ∈ {-1, 0, 1}^{H×W}                               │
+│         p_1, p_0 ∈ [0,1]^{H×W}                                │
+└─────────────────────────────────────────────────────────────────┘
+
+Implementation: RandomizedSmoothingAttributor.certify()
+  
+  results = smoother.certify(
+      image,
+      k_percent=30,
+      target_class=1,
+      sigma=0.15,
+      tau=0.75,
+      num_samples=100
+  )
+
+Algorithm flow in code:
+  1. Initialize: count_1 = 0, count_0 = 0  [vote counters]
+  2. For t=1..num_samples:
+       - Sample: noise ~ N(0, sigma²I)
+       - Create: noisy_image = clip(image + noise, 0, 1)
+       - Compute: heat = attribution_method(noisy_image)
+       - Sparsify: mask = _sparsify_topk(heat, k_percent)
+       - Vote: count_1 += mask, count_0 += (1-mask)
+  3. Normalize: p_1 = count_1/num_samples, p_0 = count_0/num_samples
+  4. Certify:
+       For each pixel [i,j]:
+         if p_1[i,j] >= tau:
+           cert[i,j] = 1
+         elif p_0[i,j] >= tau:
+           cert[i,j] = 0
+         else:
+           cert[i,j] = -1  # abstain
+
+Results interpretation:
+  - certified_map[i,j] = 1:  "This pixel is certified important"
+  - certified_map[i,j] = 0:  "This pixel is certified unimportant"
+  - certified_map[i,j] = -1: "Insufficient confidence, abstain"
+
+Critical insight from paper:
+  Sparsification must be done AFTER noise addition!
+  NOT: h_K(x) once, then smooth mask
+  BUT: for each noisy sample, recompute h(x+ε), then h_K(x+ε)
+
+
+┌─────────────────────────────────────────────────────────────────┐
+│ Eq. (6): Robustness Radius (Theory)                             │
+├─────────────────────────────────────────────────────────────────┤
+│ From randomized smoothing literature:                           │
+│                                                                 │
+│ If we certify a binary segmentation via randomized smoothing,  │
+│ there exists radius R such that:                               │
+│   For any perturbation δ with ||δ||_2 < R,                   │
+│   the binary segmentation is robustly stable                   │
+│                                                                 │
+│ This connects to our problem:                                   │
+│ - We certify h_K(x) (binary segmentation)                     │
+│ - Robustness gives us a certified radius                       │
+└─────────────────────────────────────────────────────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────┐
+│ Eq. (7): Certified Robustness Radius                            │
+├─────────────────────────────────────────────────────────────────┤
+│ R = σ · Φ^(-1)(τ)                                              │
+│                                                                 │
+│ Where:                                                          │
+│  σ: Gaussian noise standard deviation                           │
+│  τ: Certification threshold                                     │
+│  Φ^(-1): Inverse normal CDF (quantile function)               │
+│                                                                 │
+│ Interpretation:                                                 │
+│  For certified pixels (cert[i] ≠ -1):                          │
+│  Any perturbation with ||δ||_2 < R preserves certification    │
+│                                                                 │
+│  => Attribution robustness guarantee!                          │
+└─────────────────────────────────────────────────────────────────┘
+
+Implementation: In smoothing.py, using scipy.special.ndtri()
+  from scipy.special import ndtri
+  radius = sigma * ndtri(tau)
+
+Example calculations:
+  >>> from scipy.special import ndtri
+  >>> sigma = 0.15
+  >>> tau = 0.75
+  >>> radius = sigma * ndtri(tau)
+  >>> print(f"R = {sigma} × {ndtri(tau):.4f} = {radius:.4f}")
+  R = 0.15 × 0.6745 = 0.1012
+
+Physical meaning:
+  - All perturbations ||δ||_2 < 0.1012 won't change certification
+  - Certified pixels will remain certified under such noise
+
+Parametric sensitivity:
+  Larger σ → Larger R (more robust)
+  Larger τ → Larger R (stricter, more robust)
+  Trade-off: both reduce %certified
+
+=============================================================================
+HYPERPARAMETERS (Paper Values)
+=============================================================================
+
+σ (sigma) = 0.15
+  - Standard deviation of Gaussian noise
+  - Higher: more robust (larger R) but fewer certified pixels
+  - Lower: less robust (smaller R) but more certified pixels
+  - Paper value: 0.15
+
+τ (tau) = 0.75
+  - Certification threshold (0.5 to <1.0)
+  - Higher (0.90): stricter certification, larger R, fewer certified
+  - Lower (0.60): looser certification, smaller R, more certified
+  - Paper value: 0.75
+
+n (num_samples) = 100
+  - Number of noisy samples for smoothing
+  - Higher: better probability estimates but slower
+  - Lower: faster but noisier estimates
+  - Paper value: 100
+  - Typical range: [50, 200]
+
+K (k_percent) = [50, 30, 10]
+  - Sparsification level
+  - 50%: keep top half (easier to certify)
+  - 30%: keep top 30% (moderate)
+  - 10%: keep top 10% (harder to certify)
+  - Paper explores all three
+
+α (alpha) = 0.001
+  - Statistical significance level
+  - Used for confidence interval computation
+  - Paper value: 0.001
+
+=============================================================================
+OUTPUT INTERPRETATION
+=============================================================================
+
+Return value from smoother.certify():
+
+results = {
+    'certified_map': np.ndarray [H,W] ∈ {-1, 0, 1},
+        1  = certified important (p_1 >= τ)
+        0  = certified unimportant (p_0 >= τ)
+       -1  = abstain (insufficient confidence)
+    
+    'p_1': np.ndarray [H,W] ∈ [0,1],
+        Probability P(h_K(x+ε)=1)
+    
+    'p_0': np.ndarray [H,W] ∈ [0,1],
+        Probability P(h_K(x+ε)=0) = 1 - p_1
+    
+    'pct_certified': float,
+        % of pixels with cert ≠ -1
+    
+    'pct_abstained': float,
+        % of pixels with cert = -1
+    
+    'pct_certified_1': float,
+        % of pixels with cert = 1
+    
+    'pct_certified_0': float,
+        % of pixels with cert = 0
+    
+    'certified_radius': float,
+        R = σ · Φ^(-1)(τ)
+        Robustness guarantee
+    
+    'stats': dict,
+        Detailed statistics and parameters
+}
+
+Example usage:
+  >>> results = smoother.certify(img, k_percent=30)
+  >>> cert_map = results['certified_map']
+  >>> green_pixels = np.sum(cert_map == 1)  # Important pixels
+  >>> red_pixels = np.sum(cert_map == 0)    # Unimportant pixels
+  >>> uncertain = np.sum(cert_map == -1)    # Uncertain pixels
+  >>> radius = results['certified_radius']
+  >>> print(f"Robustness guarantee: ±{radius:.4f} L2 norm")
+
+=============================================================================
+STEP-BY-STEP TUTORIAL
+=============================================================================
+
+# Step 1: Setup
+import torch
+import numpy as np
+from src.models.factory import get_model
+from src.xai.attribution_unified import GradCAMUnified
+from src.certify.smoothing import RandomizedSmoothingAttributor
+
+# Step 2: Create model
+model, config = get_model('resnet18', num_classes=2)
+
+# Step 3: Create attribution method
+attr = GradCAMUnified(model)
+
+# Step 4: Wrap for smoothing
+def attribution_wrapper(img, target_cls):
+    return attr.attribute(img, target_class=target_cls)
+
+# Step 5: Create smoother
+smoother = RandomizedSmoothingAttributor(model, attribution_wrapper)
+
+# Step 6: Load image
+img = torch.randn(1, 3, 224, 224)  # Your actual image
+
+# Step 7: Certify
+results = smoother.certify(
+    image=img,
+    k_percent=30,
+    target_class=1,
+    sigma=0.15,
+    tau=0.75,
+    num_samples=100
+)
+
+# Step 8: Analyze
+cert_map = results['certified_map']
+print(f"Certified: {results['pct_certified']:.1f}%")
+print(f"Radius: {results['certified_radius']:.4f}")
+
+# Step 9: Visualize
+import matplotlib.pyplot as plt
+fig, axes = plt.subplots(1, 3)
+axes[0].imshow(img.squeeze(), cmap='gray')
+axes[0].set_title('Original')
+axes[1].imshow(results['p_1'], cmap='viridis')
+axes[1].set_title('Probability p_1')
+axes[2].imshow(cert_map, cmap='RdYlGn')
+axes[2].set_title('Certified Map')
+plt.show()
+
+=============================================================================
+COMMON MODIFICATIONS & EXTENSIONS
+=============================================================================
+
+1. Use different attribution method:
+   attr = IntegratedGradientsUnified(model)  # Instead of Grad-CAM
+   # All methods implement same interface → seamless swap
+
+2. Try different hyperparameters:
+   for sigma in [0.10, 0.15, 0.20]:
+       for tau in [0.60, 0.75, 0.90]:
+           results = smoother.certify(img, sigma=sigma, tau=tau)
+
+3. Batch process multiple images:
+   for img_id, img in enumerate(image_batch):
+       results = smoother.certify(img)
+       save_results(results, f'result_{img_id}')
+
+4. Combine with uncertainty quantification:
+   cert_map = results['certified_map']
+   p_1 = results['p_1']
+   confidence = np.maximum(p_1, 1-p_1)  # Max probability
+   high_conf = (cert_map != -1) & (confidence > 0.8)
+
+5. Analyze robustness tradeoff:
+   for k_percent in [10, 20, 30, ..., 100]:
+       results = smoother.certify(img, k_percent=k_percent)
+       print(f"K={k_percent}%, Certified={results['pct_certified']:.1f}%, "
+             f"R={results['certified_radius']:.4f}")
+
+=============================================================================
+VALIDATION CHECKLIST
+=============================================================================
+
+Before running on your data:
+  □ Test sparsification (Eq. 4)
+  □ Verify probability aggregation (Eq. 5)
+  □ Check certification decisions (Eq. 5)
+  □ Validate radius calculation (Eq. 7)
+  □ Run test_paper_implementation.py
+  □ Run example_paper_methodology.py
+  □ Verify outputs match expected format
+
+For production:
+  □ Set random seed for reproducibility
+  □ Choose appropriate num_samples (100+ for reliability)
+  □ Validate on test set
+  □ Store all results for reproducibility
+  □ Document hyperparameters used
+  □ Compare different methods (Grad-CAM, IG, RISE, Occlusion)
+
+=============================================================================
+FILES REFERENCE
+=============================================================================
+
+Core Implementation:
+  src/certify/smoothing.py
+    - RandomizedSmoothingAttributor class
+    - certify() method implementing Eq. (5-7)
+    - _sparsify_topk() implementing Eq. (4)
+
+Attribution Methods:
+  src/xai/attribution_unified.py
+    - Base class AttributionMethod
+    - IntegratedGradientsUnified (Eq. 2)
+    - GradCAMUnified (Eq. 2)
+    - RISEUnified (Eq. 2)
+    - OcclusionUnified (Eq. 2)
+
+Models:
+  src/models/factory.py
+    - get_model() for Eq. (1)
+
+Testing & Examples:
+  test_paper_implementation.py
+    - Comprehensive test suite
+  example_paper_methodology.py
+    - End-to-end example
+  PAPER_EQUATIONS.txt
+    - Equation reference guide
+
+=============================================================================
+TROUBLESHOOTING
+=============================================================================
+
+Q: Too few pixels certified?
+A: Reduce τ (lower threshold) or increase σ (more aggressive smoothing)
+   Or increase K (keep more pixels)
+
+Q: Too many pixels abstained?
+A: Reduce τ or increase num_samples (better estimates)
+
+Q: Certified radius is very small?
+A: This is correct for small σ and/or large τ
+   Larger radius requires less strict certification (lower τ)
+
+Q: Attribution is all zeros?
+A: Check target_class is valid
+   Verify image is normalized correctly
+   Ensure model is in eval mode
+
+Q: Out of memory?
+A: Reduce batch_size parameter
+   Reduce image resolution
+   Reduce num_samples (tradeoff: less reliable)
+
+Q: Results vary between runs?
+A: Set random seed: torch.manual_seed(42), np.random.seed(42)
+   Increase num_samples for stability
+
+=============================================================================
+PAPER CITATION
+=============================================================================
+
+When using this implementation, cite:
+[Your paper info here]
+
+And reference:
+Cohen, J. M., Rosenfeld, E., & Kolter, J. Z. (2019).
+"Certified adversarial robustness via randomized smoothing."
+International conference on machine learning.
+
+=============================================================================
+"""
+
+print(__doc__)
