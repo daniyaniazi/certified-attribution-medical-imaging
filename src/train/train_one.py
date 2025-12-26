@@ -58,7 +58,8 @@ class Trainer:
         
         # Metrics
         self.metrics_computer = MetricsComputer()
-        self.best_metric = {'val_auc': 0.0, 'epoch': 0}
+        self.best_metric_value = -float('inf')
+        self.best_epoch = 0
     
     def train_epoch(self) -> Dict[str, float]:
         """Train for one epoch."""
@@ -194,9 +195,10 @@ class Trainer:
             
             # Save best checkpoint
             if metric_to_track in val_metrics:
-                if val_metrics[metric_to_track] > self.best_metric['val_auc']:
-                    self.best_metric['val_auc'] = val_metrics[metric_to_track]
-                    self.best_metric['epoch'] = epoch
+                current_metric = val_metrics[metric_to_track]
+                if current_metric > self.best_metric_value:
+                    self.best_metric_value = current_metric
+                    self.best_epoch = epoch
                     
                     checkpoint_path = os.path.join(
                         checkpoint_dir,
@@ -208,6 +210,6 @@ class Trainer:
                         'optimizer_state_dict': self.optimizer.state_dict(),
                         'metrics': val_metrics
                     }, checkpoint_path)
-                    print(f"✓ Saved best checkpoint: {checkpoint_path}")
+                    print(f"✓ Saved best checkpoint (epoch {epoch+1}, {metric_to_track}={current_metric:.4f}): {checkpoint_path}")
         
         return history

@@ -56,15 +56,14 @@ venv.bak/
 *.swo
 *~
 
-# Data
-data/raw/
-data/processed/
+# # Data
+data/
 
-# Outputs
-outputs/checkpoints/
-outputs/attributions_raw/
-outputs/attributions_certified/
-outputs/reports/
+# # Outputs
+# outputs/checkpoints/
+# outputs/attributions_raw/
+# outputs/attributions_certified/
+# outputs/reports/
 
 # Large files
 *.pth
