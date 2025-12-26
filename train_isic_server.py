@@ -62,14 +62,14 @@ def parse_args():
                        help='Path to ISIC dataset (default: data/raw/isic)')
     
     # Output paths
-    parser.add_argument('--checkpoint_dir', type=str, default='checkpoints/isic',
-                       help='Directory to save checkpoints (default: checkpoints/isic)')
-    parser.add_argument('--log_dir', type=str, default='logs/isic',
-                       help='Directory to save logs (default: logs/isic)')
-    parser.add_argument('--metrics_dir', type=str, default='metrics/isic',
-                       help='Directory to save metrics (default: metrics/isic)')
-    parser.add_argument('--reports_dir', type=str, default='outputs/reports',
-                       help='Directory to save reports (default: outputs/reports)')
+    parser.add_argument('--checkpoint_dir', type=str, default='checkpoints/isic_server',
+                       help='Directory to save checkpoints (default: checkpoints/isic_server)')
+    parser.add_argument('--log_dir', type=str, default='logs/isic_server',
+                       help='Directory to save logs (default: logs/isic_server)')
+    parser.add_argument('--metrics_dir', type=str, default='metrics/isic_server',
+                       help='Directory to save metrics (default: metrics/isic_server)')
+    parser.add_argument('--reports_dir', type=str, default='outputs/reports_server',
+                       help='Directory to save reports (default: outputs/reports_server)')
     
     # Training options
     parser.add_argument('--metric', type=str, default='val_auc',
