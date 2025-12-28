@@ -143,17 +143,17 @@ class GradCAMUnified(AttributionMethod):
 
 
 class RISEUnified(AttributionMethod):
-    """RISE - unified interface."""
+    """RISE - unified interface (paper-faithful implementation)."""
     
     def attribute(
         self,
         image: torch.Tensor,
         target_class: int,
-        num_samples: int = 1000,
-        mask_size: int = 7,
+        num_samples: int = 2000,
+        mask_size: int = 14,
         prob_include: float = 0.5
     ) -> np.ndarray:
-        """RISE attribution."""
+        """RISE attribution using logits as per paper specification."""
         if image.dim() == 3:
             image = image.unsqueeze(0)
         
@@ -167,57 +167,138 @@ class RISEUnified(AttributionMethod):
         
         with torch.no_grad():
             for _ in tqdm(range(num_samples), desc="RISE", disable=True):
+                # Generate random mask
                 mask_shape = (1, 1, mask_size, mask_size)
-                mask = (torch.rand(mask_shape) < prob_include).float()
+                mask = (torch.rand(mask_shape, device=self.device) < prob_include).float()
                 
-                mask = F.interpolate(mask, size=(h, w), mode='nearest')
+                # Upsample with bilinear interpolation for smooth masks
+                mask = F.interpolate(mask, size=(h, w), mode='bilinear', align_corners=False)
+                
+                # Apply mask and get prediction
                 masked_image = image * mask
                 
                 output = self.model(masked_image)
-                prob = torch.softmax(output, dim=1)[0, target_class].item()
+                # Use LOGIT not probability - critical for proper attribution
+                score = output[0, target_class].item()
                 
-                attribution += prob * mask[0, 0].cpu().numpy()
+                attribution += score * mask[0, 0].cpu().numpy()
         
-        attribution = attribution / num_samples
+        # Normalize by N * p as per RISE paper
+        attribution = attribution / (num_samples * prob_include)
         return self._normalize_attribution(attribution)
 
 
 class OcclusionUnified(AttributionMethod):
-    """Occlusion - unified interface."""
+    """Occlusion - coarse-grid variant with upsampling."""
     
     def attribute(
         self,
         image: torch.Tensor,
         target_class: int,
-        patch_size: int = 16,
-        stride: int = 8
+        patch_size: int = 8,
+        stride: int = 4
     ) -> np.ndarray:
-        """Occlusion attribution."""
+        """Occlusion attribution using logits (coarse grid with bilinear upsampling)."""
         if image.dim() == 3:
             image = image.unsqueeze(0)
         
         _, c, h, w = image.shape
         image = image.to(self.device)
         
+        # Use mean image value as baseline instead of zeros
+        baseline_value = image.mean()
+        
         with torch.no_grad():
             baseline_output = self.model(image)
-            baseline_prob = torch.softmax(baseline_output, dim=1)[0, target_class].item()
+            # Use LOGIT not probability - critical for proper attribution
+            baseline_score = baseline_output[0, target_class].item()
         
-        attribution = np.zeros((h, w))
-        count = np.zeros((h, w))
+        # Create lower resolution attribution map for efficiency
+        h_out = (h - patch_size) // stride + 1
+        w_out = (w - patch_size) // stride + 1
+        attribution_lr = np.zeros((h_out, w_out))
         
         with torch.no_grad():
-            for i in range(0, h - patch_size, stride):
-                for j in range(0, w - patch_size, stride):
+            idx = 0
+            for i in range(0, h - patch_size + 1, stride):
+                jdx = 0
+                for j in range(0, w - patch_size + 1, stride):
                     occluded = image.clone()
-                    occluded[0, :, i:i+patch_size, j:j+patch_size] = 0
+                    # Use mean value instead of zeros for more natural occlusion
+                    occluded[0, :, i:i+patch_size, j:j+patch_size] = baseline_value
                     
                     output = self.model(occluded)
-                    prob = torch.softmax(output, dim=1)[0, target_class].item()
+                    # Use LOGIT not probability
+                    score = output[0, target_class].item()
                     
-                    diff = baseline_prob - prob
-                    attribution[i:i+patch_size, j:j+patch_size] += diff
-                    count[i:i+patch_size, j:j+patch_size] += 1
+                    # Importance = drop in logit when occluded
+                    attribution_lr[idx, jdx] = baseline_score - score
+                    jdx += 1
+                idx += 1
         
-        attribution = attribution / (count + 1e-10)
+        # Upsample attribution map to original image size using bilinear interpolation
+        import torch.nn.functional as F
+        attribution_tensor = torch.from_numpy(attribution_lr).unsqueeze(0).unsqueeze(0).float()
+        attribution_upsampled = F.interpolate(
+            attribution_tensor, 
+            size=(h, w), 
+            mode='bilinear', 
+            align_corners=False
+        )
+        attribution = attribution_upsampled[0, 0].numpy()
+        
         return self._normalize_attribution(attribution)
+
+
+class LRPUnified(AttributionMethod):
+    """
+    Layer-wise Relevance Propagation (LRP) using Zennit.
+    Compatible with ResNet, DenseNet, EfficientNet, MobileNet.
+    
+    Returns:
+        heatmap [H, W] normalized to [0,1]
+    """
+
+    def __init__(
+        self,
+        model: nn.Module,
+        device: str = "cpu",
+        epsilon: float = 1e-6
+    ):
+        super().__init__(model, device)
+        self.epsilon = epsilon
+
+    def attribute(self, image: torch.Tensor, target_class: int) -> np.ndarray:
+        """LRP attribution using Zennit's Epsilon rule."""
+        if image.dim() == 3:
+            image = image.unsqueeze(0)
+
+        image = image.to(self.device)
+        image.requires_grad_(True)
+
+        # ---- Zennit imports ----
+        try:
+            from zennit.composites import EpsilonPlus
+            from zennit.attribution import Gradient
+        except ImportError:
+            raise ImportError(
+                "Zennit not installed. Install with: pip install zennit"
+            )
+
+        # ---- LRP-ε composite (stable default) ----
+        composite = EpsilonPlus(epsilon=self.epsilon)
+
+        # ---- LRP attribution using Gradient attributor ----
+        with Gradient(model=self.model, composite=composite) as attributor:
+            # Forward pass to get output and relevance
+            output, relevance = attributor(image)
+
+        # relevance shape: [1, C, H, W]
+        relevance = relevance.detach()
+
+        # ---- Convert to [H, W] heatmap ----
+        # Sum over channels and take absolute value
+        heatmap = relevance.sum(dim=1)[0]
+        heatmap = heatmap.abs().cpu().numpy()
+
+        return self._normalize_attribution(heatmap)

@@ -1,0 +1,1065 @@
+{
+  "timestamp": "20251228_000131",
+  "num_models": 6,
+  "num_samples": 8,
+  "num_methods": 5,
+  "models": [
+    "densenet121",
+    "efficientnet_b0",
+    "efficientnet_b1",
+    "mobilenet_v2",
+    "resnet18",
+    "resnet50"
+  ],
+  "methods": [
+    "IntegratedGradients",
+    "GradCAM",
+    "RISE",
+    "Occlusion",
+    "LRP"
+  ],
+  "sample_indices": [
+    434,
+    440,
+    6,
+    184,
+    78,
+    299,
+    521,
+    484
+  ],
+  "heatmaps_structure": {
+    "densenet121": {
+      "IntegratedGradients": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\densenet121\\IntegratedGradients\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\densenet121\\IntegratedGradients\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\densenet121\\IntegratedGradients\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\densenet121\\IntegratedGradients\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\densenet121\\IntegratedGradients\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\densenet121\\IntegratedGradients\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\densenet121\\IntegratedGradients\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\densenet121\\IntegratedGradients\\sample_484.npy"
+        }
+      ],
+      "GradCAM": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\densenet121\\GradCAM\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\densenet121\\GradCAM\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\densenet121\\GradCAM\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\densenet121\\GradCAM\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\densenet121\\GradCAM\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\densenet121\\GradCAM\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\densenet121\\GradCAM\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\densenet121\\GradCAM\\sample_484.npy"
+        }
+      ],
+      "RISE": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\densenet121\\RISE\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\densenet121\\RISE\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\densenet121\\RISE\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\densenet121\\RISE\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\densenet121\\RISE\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\densenet121\\RISE\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\densenet121\\RISE\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\densenet121\\RISE\\sample_484.npy"
+        }
+      ],
+      "Occlusion": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\densenet121\\Occlusion\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\densenet121\\Occlusion\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\densenet121\\Occlusion\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\densenet121\\Occlusion\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\densenet121\\Occlusion\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\densenet121\\Occlusion\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\densenet121\\Occlusion\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\densenet121\\Occlusion\\sample_484.npy"
+        }
+      ],
+      "LRP": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\densenet121\\LRP\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\densenet121\\LRP\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\densenet121\\LRP\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\densenet121\\LRP\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\densenet121\\LRP\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\densenet121\\LRP\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\densenet121\\LRP\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\densenet121\\LRP\\sample_484.npy"
+        }
+      ]
+    },
+    "efficientnet_b0": {
+      "IntegratedGradients": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\efficientnet_b0\\IntegratedGradients\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\efficientnet_b0\\IntegratedGradients\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\efficientnet_b0\\IntegratedGradients\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\efficientnet_b0\\IntegratedGradients\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\efficientnet_b0\\IntegratedGradients\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\efficientnet_b0\\IntegratedGradients\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\efficientnet_b0\\IntegratedGradients\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\efficientnet_b0\\IntegratedGradients\\sample_484.npy"
+        }
+      ],
+      "GradCAM": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\efficientnet_b0\\GradCAM\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\efficientnet_b0\\GradCAM\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\efficientnet_b0\\GradCAM\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\efficientnet_b0\\GradCAM\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\efficientnet_b0\\GradCAM\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\efficientnet_b0\\GradCAM\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\efficientnet_b0\\GradCAM\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\efficientnet_b0\\GradCAM\\sample_484.npy"
+        }
+      ],
+      "RISE": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\efficientnet_b0\\RISE\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\efficientnet_b0\\RISE\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\efficientnet_b0\\RISE\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\efficientnet_b0\\RISE\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\efficientnet_b0\\RISE\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\efficientnet_b0\\RISE\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\efficientnet_b0\\RISE\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\efficientnet_b0\\RISE\\sample_484.npy"
+        }
+      ],
+      "Occlusion": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\efficientnet_b0\\Occlusion\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\efficientnet_b0\\Occlusion\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\efficientnet_b0\\Occlusion\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\efficientnet_b0\\Occlusion\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\efficientnet_b0\\Occlusion\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\efficientnet_b0\\Occlusion\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\efficientnet_b0\\Occlusion\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\efficientnet_b0\\Occlusion\\sample_484.npy"
+        }
+      ],
+      "LRP": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\efficientnet_b0\\LRP\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\efficientnet_b0\\LRP\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\efficientnet_b0\\LRP\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\efficientnet_b0\\LRP\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\efficientnet_b0\\LRP\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\efficientnet_b0\\LRP\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\efficientnet_b0\\LRP\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\efficientnet_b0\\LRP\\sample_484.npy"
+        }
+      ]
+    },
+    "efficientnet_b1": {
+      "IntegratedGradients": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\efficientnet_b1\\IntegratedGradients\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\efficientnet_b1\\IntegratedGradients\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\efficientnet_b1\\IntegratedGradients\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\efficientnet_b1\\IntegratedGradients\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\efficientnet_b1\\IntegratedGradients\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\efficientnet_b1\\IntegratedGradients\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\efficientnet_b1\\IntegratedGradients\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\efficientnet_b1\\IntegratedGradients\\sample_484.npy"
+        }
+      ],
+      "GradCAM": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\efficientnet_b1\\GradCAM\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\efficientnet_b1\\GradCAM\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\efficientnet_b1\\GradCAM\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\efficientnet_b1\\GradCAM\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\efficientnet_b1\\GradCAM\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\efficientnet_b1\\GradCAM\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\efficientnet_b1\\GradCAM\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\efficientnet_b1\\GradCAM\\sample_484.npy"
+        }
+      ],
+      "RISE": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\efficientnet_b1\\RISE\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\efficientnet_b1\\RISE\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\efficientnet_b1\\RISE\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\efficientnet_b1\\RISE\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\efficientnet_b1\\RISE\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\efficientnet_b1\\RISE\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\efficientnet_b1\\RISE\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\efficientnet_b1\\RISE\\sample_484.npy"
+        }
+      ],
+      "Occlusion": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\efficientnet_b1\\Occlusion\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\efficientnet_b1\\Occlusion\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\efficientnet_b1\\Occlusion\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\efficientnet_b1\\Occlusion\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\efficientnet_b1\\Occlusion\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\efficientnet_b1\\Occlusion\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\efficientnet_b1\\Occlusion\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\efficientnet_b1\\Occlusion\\sample_484.npy"
+        }
+      ],
+      "LRP": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\efficientnet_b1\\LRP\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\efficientnet_b1\\LRP\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\efficientnet_b1\\LRP\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\efficientnet_b1\\LRP\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\efficientnet_b1\\LRP\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\efficientnet_b1\\LRP\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\efficientnet_b1\\LRP\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\efficientnet_b1\\LRP\\sample_484.npy"
+        }
+      ]
+    },
+    "mobilenet_v2": {
+      "IntegratedGradients": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\mobilenet_v2\\IntegratedGradients\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\mobilenet_v2\\IntegratedGradients\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\mobilenet_v2\\IntegratedGradients\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\mobilenet_v2\\IntegratedGradients\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\mobilenet_v2\\IntegratedGradients\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\mobilenet_v2\\IntegratedGradients\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\mobilenet_v2\\IntegratedGradients\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\mobilenet_v2\\IntegratedGradients\\sample_484.npy"
+        }
+      ],
+      "GradCAM": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\mobilenet_v2\\GradCAM\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\mobilenet_v2\\GradCAM\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\mobilenet_v2\\GradCAM\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\mobilenet_v2\\GradCAM\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\mobilenet_v2\\GradCAM\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\mobilenet_v2\\GradCAM\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\mobilenet_v2\\GradCAM\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\mobilenet_v2\\GradCAM\\sample_484.npy"
+        }
+      ],
+      "RISE": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\mobilenet_v2\\RISE\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\mobilenet_v2\\RISE\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\mobilenet_v2\\RISE\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\mobilenet_v2\\RISE\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\mobilenet_v2\\RISE\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\mobilenet_v2\\RISE\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\mobilenet_v2\\RISE\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\mobilenet_v2\\RISE\\sample_484.npy"
+        }
+      ],
+      "Occlusion": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\mobilenet_v2\\Occlusion\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\mobilenet_v2\\Occlusion\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\mobilenet_v2\\Occlusion\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\mobilenet_v2\\Occlusion\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\mobilenet_v2\\Occlusion\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\mobilenet_v2\\Occlusion\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\mobilenet_v2\\Occlusion\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\mobilenet_v2\\Occlusion\\sample_484.npy"
+        }
+      ],
+      "LRP": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\mobilenet_v2\\LRP\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\mobilenet_v2\\LRP\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\mobilenet_v2\\LRP\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\mobilenet_v2\\LRP\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\mobilenet_v2\\LRP\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\mobilenet_v2\\LRP\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\mobilenet_v2\\LRP\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\mobilenet_v2\\LRP\\sample_484.npy"
+        }
+      ]
+    },
+    "resnet18": {
+      "IntegratedGradients": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\resnet18\\IntegratedGradients\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\resnet18\\IntegratedGradients\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\resnet18\\IntegratedGradients\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\resnet18\\IntegratedGradients\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\resnet18\\IntegratedGradients\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\resnet18\\IntegratedGradients\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\resnet18\\IntegratedGradients\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\resnet18\\IntegratedGradients\\sample_484.npy"
+        }
+      ],
+      "GradCAM": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\resnet18\\GradCAM\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\resnet18\\GradCAM\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\resnet18\\GradCAM\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\resnet18\\GradCAM\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\resnet18\\GradCAM\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\resnet18\\GradCAM\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\resnet18\\GradCAM\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\resnet18\\GradCAM\\sample_484.npy"
+        }
+      ],
+      "RISE": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\resnet18\\RISE\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\resnet18\\RISE\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\resnet18\\RISE\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\resnet18\\RISE\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\resnet18\\RISE\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\resnet18\\RISE\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\resnet18\\RISE\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\resnet18\\RISE\\sample_484.npy"
+        }
+      ],
+      "Occlusion": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\resnet18\\Occlusion\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\resnet18\\Occlusion\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\resnet18\\Occlusion\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\resnet18\\Occlusion\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\resnet18\\Occlusion\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\resnet18\\Occlusion\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\resnet18\\Occlusion\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\resnet18\\Occlusion\\sample_484.npy"
+        }
+      ],
+      "LRP": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\resnet18\\LRP\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\resnet18\\LRP\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\resnet18\\LRP\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\resnet18\\LRP\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\resnet18\\LRP\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\resnet18\\LRP\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\resnet18\\LRP\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\resnet18\\LRP\\sample_484.npy"
+        }
+      ]
+    },
+    "resnet50": {
+      "IntegratedGradients": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\resnet50\\IntegratedGradients\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\resnet50\\IntegratedGradients\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\resnet50\\IntegratedGradients\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\resnet50\\IntegratedGradients\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\resnet50\\IntegratedGradients\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\resnet50\\IntegratedGradients\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\resnet50\\IntegratedGradients\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\resnet50\\IntegratedGradients\\sample_484.npy"
+        }
+      ],
+      "GradCAM": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\resnet50\\GradCAM\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\resnet50\\GradCAM\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\resnet50\\GradCAM\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\resnet50\\GradCAM\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\resnet50\\GradCAM\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\resnet50\\GradCAM\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\resnet50\\GradCAM\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\resnet50\\GradCAM\\sample_484.npy"
+        }
+      ],
+      "RISE": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\resnet50\\RISE\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\resnet50\\RISE\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\resnet50\\RISE\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\resnet50\\RISE\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\resnet50\\RISE\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\resnet50\\RISE\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\resnet50\\RISE\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\resnet50\\RISE\\sample_484.npy"
+        }
+      ],
+      "Occlusion": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\resnet50\\Occlusion\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\resnet50\\Occlusion\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\resnet50\\Occlusion\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\resnet50\\Occlusion\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\resnet50\\Occlusion\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\resnet50\\Occlusion\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\resnet50\\Occlusion\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\resnet50\\Occlusion\\sample_484.npy"
+        }
+      ],
+      "LRP": [
+        {
+          "sample_idx": 434,
+          "file": "heatmaps\\resnet50\\LRP\\sample_434.npy"
+        },
+        {
+          "sample_idx": 440,
+          "file": "heatmaps\\resnet50\\LRP\\sample_440.npy"
+        },
+        {
+          "sample_idx": 6,
+          "file": "heatmaps\\resnet50\\LRP\\sample_6.npy"
+        },
+        {
+          "sample_idx": 184,
+          "file": "heatmaps\\resnet50\\LRP\\sample_184.npy"
+        },
+        {
+          "sample_idx": 78,
+          "file": "heatmaps\\resnet50\\LRP\\sample_78.npy"
+        },
+        {
+          "sample_idx": 299,
+          "file": "heatmaps\\resnet50\\LRP\\sample_299.npy"
+        },
+        {
+          "sample_idx": 521,
+          "file": "heatmaps\\resnet50\\LRP\\sample_521.npy"
+        },
+        {
+          "sample_idx": 484,
+          "file": "heatmaps\\resnet50\\LRP\\sample_484.npy"
+        }
+      ]
+    }
+  }
+}
