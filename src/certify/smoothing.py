@@ -148,33 +148,36 @@ class RandomizedSmoothingAttributor:
         print(f"\n[Randomized Smoothing] σ={sigma}, τ={tau}, n={num_samples}, K={k_percent}%")
         
         # Step 1-2: Sample noise and aggregate votes
-        with torch.no_grad():
-            for i in tqdm(range(0, num_samples, batch_size), desc="Smoothing samples", disable=False):
-                batch_end = min(i + batch_size, num_samples)
-                batch_n = batch_end - i
-                
-                # Sample noise: ε_t ~ N(0, σ²I)
-                noise = torch.randn(batch_n, c, h, w, device=self.device) * sigma
-                
-                # Create noisy images: x_t = x + ε_t
-                noisy_images = image + noise
-                noisy_images = torch.clamp(noisy_images, 0, 1)
-                
-                # Process each noisy sample
-                for j in range(batch_n):
-                    # Compute attribution: heat_t = h(x_t)
+        # IMPORTANT: Keep gradients enabled for gradient-based attribution methods (IG, GradCAM, LRP)
+        # torch.no_grad() would break these methods!
+        for i in tqdm(range(0, num_samples, batch_size), desc="Smoothing samples", disable=False):
+            batch_end = min(i + batch_size, num_samples)
+            batch_n = batch_end - i
+            
+            # Sample noise: ε_t ~ N(0, σ²I)
+            noise = torch.randn(batch_n, c, h, w, device=self.device) * sigma
+            
+            # Create noisy images: x_t = x + ε_t
+            noisy_images = image + noise
+            noisy_images = torch.clamp(noisy_images, 0, 1)
+            
+            # Process each noisy sample
+            for j in range(batch_n):
+                # Compute attribution: heat_t = h(x_t)
+                # Must keep gradients enabled for gradient-based methods!
+                with torch.enable_grad():
                     heat = self.attribution_func(noisy_images[j:j+1], target_class)
-                    heat_np = to_numpy_2d(heat)
-                    
-                    # Sparsify: h_K(x_t) = top-K% pixels (Eq. 4)
-                    mask = self._sparsify_topk(heat_np, k_percent)
-                    sum_masks += mask
-                    if save_noisy_samples and len(sample_noisy_heatmaps) < max_noisy_samples:
-                        sample_noisy_heatmaps.append(heat_np)
-                    
-                    # Aggregate: count votes
-                    count_class_1 += (mask > 0.5).astype(np.int32)
-                    count_class_0 += (mask < 0.5).astype(np.int32)
+                heat_np = to_numpy_2d(heat)
+                
+                # Sparsify: h_K(x_t) = top-K% pixels (Eq. 4)
+                mask = self._sparsify_topk(heat_np, k_percent)
+                sum_masks += mask
+                if save_noisy_samples and len(sample_noisy_heatmaps) < max_noisy_samples:
+                    sample_noisy_heatmaps.append(heat_np)
+                
+                # Aggregate: count votes
+                count_class_1 += (mask > 0.5).astype(np.int32)
+                count_class_0 += (mask < 0.5).astype(np.int32)
         
         # Step 2: Compute per-pixel probabilities (Eq. 5)
         p_1 = count_class_1 / num_samples  # P(h_K(x+ε) = 1)

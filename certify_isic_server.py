@@ -183,39 +183,59 @@ def _overlay_k_layers_on_image(img_hwc: np.ndarray, c50: np.ndarray, c25: np.nda
 
 def generate_paper_panel_all_methods(save_dir: Path, model_name: str, img_idx: int,
                                      img_tensor: torch.Tensor, method_results_map: dict):
-    """Create paper-style panel: rows=methods, cols=SS, K=50/25/5, Overlayed."""
+    """Create paper-style panel matching Figure 2: rows=methods, cols=Input|SS|K=50/25/5|Overlayed."""
     save_dir.mkdir(parents=True, exist_ok=True)
-    methods_order = ["IntegratedGradients", "LRP", "RISE", "GradCAM", "Occlusion"]
+    methods_order = ["IntegratedGradients", "GradCAM", "RISE", "Occlusion", "LRP"]
     img = _tensor_to_hwc(img_tensor)
     n_rows = len(methods_order)
-    n_cols = 5
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(n_cols * 2.8, n_rows * 2.6))
+    n_cols = 6  # Input, SS, K=50%, K=25%, K=5%, Overlayed
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(20, 3.5 * n_rows))
     axes = np.atleast_2d(axes)
 
     for r, mname in enumerate(methods_order):
         res_by_k = method_results_map.get(mname, {})
-        # SS column
-        ax = axes[r, 0]
+        
+        # Column 0: Input image
+        ax_input = axes[r, 0]
+        ax_input.imshow(img)
+        if r == 0:
+            ax_input.set_title('Input', fontsize=12, fontweight='bold')
+        # Method name label on the left
+        ax_input.text(-0.1, 0.5, mname, transform=ax_input.transAxes,
+                     fontsize=11, fontweight='bold', va='center', ha='right', rotation=0)
+        ax_input.axis("off")
+        
+        # Column 1: SS (Smoothed Sparsified)
+        ax_ss = axes[r, 1]
         ss_map = None
         # Pick any available K to fetch ss_map
         if res_by_k:
             ss_map = next(iter(res_by_k.values())).get("ss_map")
-        ax.imshow(ss_map if ss_map is not None else np.zeros(img.shape[:2]), cmap="magma", vmin=0, vmax=1)
-        ax.set_title("SS", fontsize=9)
-        ax.axis("off")
+        ax_ss.imshow(ss_map if ss_map is not None else np.zeros(img.shape[:2]), cmap="gray", vmin=0, vmax=1)
+        if r == 0:
+            ax_ss.set_title('SS', fontsize=12, fontweight='bold')
+        ax_ss.axis("off")
 
-        # K columns
-        for ci, (k, color) in enumerate([(50, (1.0, 0.8, 0.0)), (25, (1.0, 0.0, 0.0)), (5, (0.0, 0.0, 0.0))], start=1):
+        # Columns 2-4: K=50%, 25%, 5% certified maps
+        for ci, k in enumerate([50, 25, 5], start=2):
             axk = axes[r, ci]
             res = res_by_k.get(k, {})
             c_map = res.get("certified_map")
-            panel = _render_cert_column(c_map if c_map is not None else np.zeros(img.shape[:2]), color_rgb=color)
-            axk.imshow(panel)
-            axk.set_title(f"K={k}%", fontsize=9)
+            if c_map is not None:
+                # Color-code: certified-1=orange, certified-0=white, abstain=gray
+                viz_map = np.ones((c_map.shape[0], c_map.shape[1], 3))
+                viz_map[c_map == 0] = [1.0, 1.0, 1.0]  # white
+                viz_map[c_map == 1] = [1.0, 0.65, 0.0]  # orange
+                viz_map[c_map == -1] = [0.85, 0.85, 0.85]  # light gray
+                axk.imshow(viz_map)
+            else:
+                axk.imshow(np.ones(img.shape[:2] + (3,)) * 0.85)
+            if r == 0:
+                axk.set_title(f'K={k}%', fontsize=12, fontweight='bold')
             axk.axis("off")
 
-        # Overlayed column
-        axo = axes[r, 4]
+        # Column 5: Overlayed (combine all K certified pixels)
+        axo = axes[r, 5]
         c50 = res_by_k.get(50, {}).get("certified_map")
         c25 = res_by_k.get(25, {}).get("certified_map")
         c5 = res_by_k.get(5, {}).get("certified_map")
@@ -225,14 +245,37 @@ def generate_paper_panel_all_methods(save_dir: Path, model_name: str, img_idx: i
             c25 = np.zeros(img.shape[:2])
         if c5 is None:
             c5 = np.zeros(img.shape[:2])
-        over = _overlay_k_layers_on_image(img, c50, c25, c5)
-        axo.imshow(over)
-        axo.set_title("Overlayed", fontsize=9)
+        
+        # Create overlay map with priority: K=5% > K=25% > K=50%
+        overlay_map = np.ones(img.shape[:2] + (3,)) * 0.9  # light gray background
+        overlay_map[c50 == 1] = [1.0, 0.65, 0.0]  # orange for top 50%
+        overlay_map[c25 == 1] = [0.9, 0.3, 0.3]  # red for top 25%
+        overlay_map[c5 == 1] = [0.2, 0.0, 0.2]  # dark purple for top 5%
+        
+        axo.imshow(overlay_map)
+        if r == 0:
+            axo.set_title('Overlayed', fontsize=12, fontweight='bold')
         axo.axis("off")
 
-    plt.suptitle(f"Certified (model={model_name}, img={img_idx})", fontsize=12)
-    plt.tight_layout()
-    out_path = save_dir / f"{model_name}_img{img_idx}_panel.png"
+    # Add "Certified" header above K columns
+    fig.text(0.63, 0.97, 'Certified', ha='center', fontsize=13, fontweight='bold')
+    
+    # Add legend
+    import matplotlib.patches as mpatches
+    legend_patches = [
+        mpatches.Patch(color=[1.0, 0.65, 0.0], label='Top 50%'),
+        mpatches.Patch(color=[0.9, 0.3, 0.3], label='Top 25%'),
+        mpatches.Patch(color=[0.2, 0.0, 0.2], label='Top 5%'),
+        mpatches.Patch(color=[0.9, 0.9, 0.9], label='Not certified'),
+    ]
+    fig.legend(handles=legend_patches, loc='lower center', ncol=4, 
+              bbox_to_anchor=(0.5, -0.02), fontsize=10)
+    
+    plt.suptitle(f'{model_name}: Certified Attributions (Paper Style) - Image {img_idx}', 
+                fontsize=14, fontweight='bold', y=0.98)
+    plt.tight_layout(rect=[0, 0.02, 1, 0.96])
+    
+    out_path = save_dir / f"{model_name}_img{img_idx}_paper_style.png"
     plt.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close()
     return out_path
@@ -382,6 +425,12 @@ def main():
 
         smoother = RandomizedSmoothingAttributor(model, None, device=device)
 
+        # High-confidence filtering (Paper requirement)
+        high_confidence_threshold = 0.8
+        
+        # Track if we've created the paper-style panel for this model
+        panel_created = False
+        
         # Images loop
         for img_idx, batch in enumerate(loader):
             if img_idx >= args.num_images:
@@ -389,8 +438,25 @@ def main():
             image = batch["image"].to(device)
             label_value = batch["label"]
             label_int = int(label_value.squeeze().item()) if isinstance(label_value, torch.Tensor) else int(label_value)
+            
+            # PAPER REQUIREMENT: Only certify high-confidence correct predictions
+            with torch.no_grad():
+                logits = model(image)
+                probs = torch.softmax(logits, dim=1)
+                pred_class = logits.argmax(dim=1).item()
+                pred_confidence = probs[0, pred_class].item()
+            
+            # Skip if prediction is wrong or low confidence
+            if pred_class != label_int:
+                print(f"  Image {img_idx+1}/{args.num_images} SKIPPED (pred={pred_class} != label={label_int})")
+                continue
+            if pred_confidence < high_confidence_threshold:
+                print(f"  Image {img_idx+1}/{args.num_images} SKIPPED (confidence={pred_confidence:.3f} < {high_confidence_threshold})")
+                continue
+            
+            # Enable gradients for attribution methods
             image.requires_grad_(True)
-            print(f"  Image {img_idx+1}/{args.num_images} (label: {label_int})")
+            print(f"  Image {img_idx+1}/{args.num_images} (label: {label_int}, pred: {pred_class}, conf: {pred_confidence:.3f})")
 
             method_results_map = {}
             for method_name, attr_func in methods.items():
@@ -433,11 +499,11 @@ def main():
 
                 method_results_map[method_name] = results_by_k
 
-            # After all methods for this image, create paper-style panel if within limit
-            if img_idx < args.panel_examples:
-                panel_dir = heatmap_dir / "paper_panels"
-                out_panel = generate_paper_panel_all_methods(panel_dir, model_name, img_idx, image, method_results_map)
+            # After all methods for this image, create paper-style panel for FIRST successfully certified image per model
+            if not panel_created and method_results_map:
+                out_panel = generate_paper_panel_all_methods(certify_dir, model_name, img_idx, image, method_results_map)
                 print(f"  ✓ Saved paper-style panel: {out_panel}")
+                panel_created = True
 
     # Final saves
     save_partial()
