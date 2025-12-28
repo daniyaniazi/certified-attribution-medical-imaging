@@ -250,10 +250,12 @@ def build_attr_methods(model: nn.Module, device: str, model_name: str):
 
 
 def make_attr_wrapper(attr_func, target_h: int, target_w: int, target_class: int):
-    def _wrapper(img):
+    def _wrapper(img, target_class_override=None):
         img.requires_grad_(True)
+        # Use provided class if smoothing passes one; else use captured target_class
+        tc = target_class if target_class_override is None else int(target_class_override)
         with torch.enable_grad():
-            heat = attr_func.attribute(img, target_class=target_class)
+            heat = attr_func.attribute(img, target_class=tc)
         heat_np = heat.detach().cpu().numpy() if isinstance(heat, torch.Tensor) else np.array(heat)
         while heat_np.ndim > 2:
             if heat_np.shape[0] == 1:
