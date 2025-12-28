@@ -125,78 +125,150 @@ def main(args):
         'k_percents': [int(k) for k in args.k_percents.split(',')]
     }
     
-    # Process samples
+    # Helper: compose m x m grid (default 2x2) from list of images [1,C,H,W]
+    def compose_grid(images, m=2):
+        assert len(images) == m * m
+        # Assume all images same shape [1, C, H, W]
+        _, C, H, W = images[0].shape
+        rows = []
+        bboxes = []  # (y0,x0,y1,x1) per cell
+        for r in range(m):
+            row_imgs = []
+            for c in range(m):
+                idx = r * m + c
+                row_imgs.append(images[idx])
+                y0, x0 = r * H, c * W
+                y1, x1 = y0 + H, x0 + W
+                bboxes.append((y0, x0, y1, x1))
+            rows.append(torch.cat(row_imgs, dim=3))  # concat width
+        grid = torch.cat(rows, dim=2)  # concat height
+        return grid, bboxes
+
+    # Process: either per-sample certification or GridPG grids
     evaluator = CertificationEvaluator()
     results_list = []
-    
+
     with torch.no_grad():
-        pbar = tqdm(enumerate(loader), total=len(loader), desc="Certifying")
-        
-        for idx, batch in pbar:
-            image = batch['image'].to(device)  # [1, C, H, W]
-            label = batch['label'].item()
-            meta = batch['meta']
-            
-            sample_id = meta['id'][0] if isinstance(meta['id'], list) else meta['id']
-            
-            sample_results = {
-                'id': str(sample_id),
-                'label': int(label),
-                'filename': meta['filename'][0] if isinstance(meta['filename'], list) else meta['filename'],
-                'certified_maps': []
-            }
-            
-            # Certify for each K value (Paper: Eq. 4)
-            for k_percent in cert_params['k_percents']:
-                # Paper Eq. 5-7: Randomized smoothing certification
-                results = smoother.certify(
-                    image,
-                    k_percent=k_percent,
-                    target_class=1,
-                    sigma=args.sigma,
-                    num_samples=args.num_samples,
-                    tau=args.tau,
-                    batch_size=args.batch_size
-                )
+        if args.gridpg:
+            # Build and certify grids
+            print(f"Generating {args.num_grids} grids of size {args.grid_size}x{args.grid_size}...")
+            dataset_iter = iter(loader)
+            grids_done = 0
+            target_row, target_col = map(int, args.grid_target_cell.split(','))
+            while grids_done < args.num_grids:
+                images = []
+                labels = []
+                metas = []
+                # Collect m*m images (optionally distinct labels)
+                while len(images) < args.grid_size * args.grid_size:
+                    try:
+                        batch = next(dataset_iter)
+                    except StopIteration:
+                        dataset_iter = iter(loader)
+                        batch = next(dataset_iter)
+                    img = batch['image'].to(device)
+                    images.append(img)
+                    labels.append(batch['label'].item())
+                    metas.append(batch['meta'])
+                # Compose grid
+                grid_img, bboxes = compose_grid(images, m=args.grid_size)  # [1,C,H*m,W*m]
+                grid_id = f'grid_{grids_done:03d}'
                 
-                certified_map = results['certified_map']
-                p_1 = results['p_1']
-                p_0 = results['p_0']
-                radius = results['certified_radius']
-                
-                # Compute metrics
-                cert_metrics = evaluator.evaluate_certified(results)
-                
-                # Save certified map ({-1, 0, 1})
-                certified_path = os.path.join(output_dir, f'{sample_id}_certified_k{k_percent}.npy')
-                save_attribution(certified_map.astype(np.float32), certified_path)
-                
-                # Save probability maps (optional but useful for analysis)
-                p1_path = os.path.join(output_dir, f'{sample_id}_p1_k{k_percent}.npy')
-                p0_path = os.path.join(output_dir, f'{sample_id}_p0_k{k_percent}.npy')
-                save_attribution(p_1.astype(np.float32), p1_path)
-                save_attribution(p_0.astype(np.float32), p0_path)
-                
-                # Save visualization
-                viz_path = os.path.join(output_dir, f'{sample_id}_certified_k{k_percent}.png')
-                save_certified_map(certified_map, viz_path, 
-                                 title=f'K={k_percent}%, R={radius:.4f}')
-                
-                sample_results['certified_maps'].append({
-                    'k_percent': k_percent,
-                    'pct_certified': cert_metrics['pct_certified'],
-                    'pct_abstained': cert_metrics['pct_abstained'],
-                    'certified_radius': radius,
-                    'metrics': cert_metrics
-                })
-                
-                pbar.set_postfix({
-                    'k%': k_percent,
-                    'certified%': f'{cert_metrics["pct_certified"]:.1f}',
-                    'R': f'{radius:.4f}'
-                })
-            
-            results_list.append(sample_results)
+                sample_results = {
+                    'id': grid_id,
+                    'grid_size': args.grid_size,
+                    'labels': [int(l) for l in labels],
+                    'target_cell': [target_row, target_col],
+                    'certified_maps': []
+                }
+
+                # Certify for each K value
+                for k_percent in cert_params['k_percents']:
+                    results = smoother.certify(
+                        grid_img,
+                        k_percent=k_percent,
+                        target_class=1,
+                        sigma=args.sigma,
+                        num_samples=args.num_samples,
+                        tau=args.tau,
+                        batch_size=args.batch_size,
+                        alpha=args.alpha
+                    )
+                    certified_map = results['certified_map']
+                    radius = results['certified_radius']
+                    # GridPG via bbox of target cell
+                    H = images[0].shape[2]
+                    W = images[0].shape[3]
+                    y0 = target_row * H
+                    x0 = target_col * W
+                    y1 = y0 + H
+                    x1 = x0 + W
+                    gridpg = evaluator.compute_certified_gridpg_bbox(
+                        certified_map, y0, x0, y1, x1
+                    )
+                    cert_metrics = evaluator.evaluate_certified(results)
+                    # Save arrays
+                    certified_path = os.path.join(output_dir, f'{grid_id}_certified_k{k_percent}.npy')
+                    save_attribution(certified_map.astype(np.float32), certified_path)
+                    viz_path = os.path.join(output_dir, f'{grid_id}_certified_k{k_percent}.png')
+                    save_certified_map(certified_map, viz_path, title=f'Grid {args.grid_size}x{args.grid_size} K={k_percent}% R={radius:.4f}')
+                    sample_results['certified_maps'].append({
+                        'k_percent': k_percent,
+                        'pct_certified': cert_metrics['pct_certified'],
+                        'pct_abstained': cert_metrics['pct_abstained'],
+                        'certified_radius': radius,
+                        'gridpg': gridpg,
+                        'metrics': cert_metrics
+                    })
+                results_list.append(sample_results)
+                grids_done += 1
+        else:
+            # Per-sample certification
+            pbar = tqdm(enumerate(loader), total=len(loader), desc="Certifying")
+            for idx, batch in pbar:
+                image = batch['image'].to(device)  # [1, C, H, W]
+                label = batch['label'].item()
+                meta = batch['meta']
+                sample_id = meta['id'][0] if isinstance(meta['id'], list) else meta['id']
+                sample_results = {
+                    'id': str(sample_id),
+                    'label': int(label),
+                    'filename': meta['filename'][0] if isinstance(meta['filename'], list) else meta['filename'],
+                    'certified_maps': []
+                }
+                for k_percent in cert_params['k_percents']:
+                    results = smoother.certify(
+                        image,
+                        k_percent=k_percent,
+                        target_class=1,
+                        sigma=args.sigma,
+                        num_samples=args.num_samples,
+                        tau=args.tau,
+                        batch_size=args.batch_size,
+                        alpha=args.alpha
+                    )
+                    certified_map = results['certified_map']
+                    p_1 = results['p_1']
+                    p_0 = results['p_0']
+                    radius = results['certified_radius']
+                    cert_metrics = evaluator.evaluate_certified(results)
+                    certified_path = os.path.join(output_dir, f'{sample_id}_certified_k{k_percent}.npy')
+                    save_attribution(certified_map.astype(np.float32), certified_path)
+                    p1_path = os.path.join(output_dir, f'{sample_id}_p1_k{k_percent}.npy')
+                    p0_path = os.path.join(output_dir, f'{sample_id}_p0_k{k_percent}.npy')
+                    save_attribution(p_1.astype(np.float32), p1_path)
+                    save_attribution(p_0.astype(np.float32), p0_path)
+                    viz_path = os.path.join(output_dir, f'{sample_id}_certified_k{k_percent}.png')
+                    save_certified_map(certified_map, viz_path, title=f'K={k_percent}% R={radius:.4f}')
+                    sample_results['certified_maps'].append({
+                        'k_percent': k_percent,
+                        'pct_certified': cert_metrics['pct_certified'],
+                        'pct_abstained': cert_metrics['pct_abstained'],
+                        'certified_radius': radius,
+                        'metrics': cert_metrics
+                    })
+                    pbar.set_postfix({'k%': k_percent, 'certified%': f'{cert_metrics["pct_certified"]:.1f}', 'R': f'{radius:.4f}'})
+                results_list.append(sample_results)
     
     # Save results
     results_path = os.path.join(output_dir, 'results.json')
@@ -234,6 +306,16 @@ if __name__ == '__main__':
                         help='Batch size for smoothing')
     parser.add_argument('--k-percents', type=str, default='50,30,10',
                         help='K percentiles for sparsification (comma-separated)')
+    parser.add_argument('--alpha', type=float, default=0.001,
+                        help='Significance level for Clopper-Pearson confidence bounds')
+    parser.add_argument('--gridpg', action='store_true',
+                        help='Evaluate Certified GridPG by composing grids of images')
+    parser.add_argument('--grid-size', type=int, default=2,
+                        help='Grid dimension m (m x m)')
+    parser.add_argument('--num-grids', type=int, default=100,
+                        help='Number of grids to compose and certify')
+    parser.add_argument('--grid-target-cell', type=str, default='0,0',
+                        help='Target cell as row,col for GridPG (e.g., "0,1")')
     parser.add_argument('--num-test-samples', type=int, default=None,
                         help='Limit number of test samples')
     

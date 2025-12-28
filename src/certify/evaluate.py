@@ -164,3 +164,132 @@ class CertificationEvaluator:
         }
         
         return metrics
+
+    @staticmethod
+    def compute_percent_certified(certified_map: np.ndarray) -> float:
+        """Fraction of pixels that are certified (non-abstain)."""
+        total = certified_map.size
+        certified = np.sum(certified_map != -1)
+        return certified / total if total > 0 else 0.0
+
+    @staticmethod
+    def compute_certified_gridpg(
+        certified_map: np.ndarray,
+        m: int,
+        cell_row: int,
+        cell_col: int
+    ) -> float:
+        """
+        Certified Grid Pointing Game (GridPG) score.
+
+        Splits the map into an m x m grid of equal cells and computes
+        the ratio of certified-1 pixels within the selected cell to the
+        total certified-1 pixels across the entire grid.
+        """
+        h, w = certified_map.shape
+        cell_h = h // m
+        cell_w = w // m
+
+        y0 = cell_row * cell_h
+        x0 = cell_col * cell_w
+        y1 = y0 + cell_h if cell_row < m - 1 else h
+        x1 = x0 + cell_w if cell_col < m - 1 else w
+
+        cell = certified_map[y0:y1, x0:x1]
+        total_pos = np.sum(certified_map == 1)
+        cell_pos = np.sum(cell == 1)
+
+        return (cell_pos / total_pos) if total_pos > 0 else 0.0
+
+    @staticmethod
+    def compute_certified_gridpg_mask(
+        certified_map: np.ndarray,
+        subimage_mask: np.ndarray
+    ) -> float:
+        """
+        Certified GridPG using an explicit ground-truth subimage mask.
+
+        Args:
+            certified_map: {-1,0,1} array [H, W]
+            subimage_mask: boolean or {0,1} array [H, W] where True/1 indicates
+                           pixels belonging to the ground-truth subimage.
+
+        Returns:
+            Ratio of certified-1 pixels inside the subimage to total certified-1
+            pixels across the whole grid.
+        """
+        mask_bool = subimage_mask.astype(bool)
+        total_pos = np.sum(certified_map == 1)
+        cell_pos = np.sum((certified_map == 1) & mask_bool)
+        return (cell_pos / total_pos) if total_pos > 0 else 0.0
+
+    @staticmethod
+    def compute_certified_gridpg_bbox(
+        certified_map: np.ndarray,
+        y0: int,
+        x0: int,
+        y1: int,
+        x1: int
+    ) -> float:
+        """
+        Certified GridPG using an explicit bounding box for the subimage.
+        """
+        h, w = certified_map.shape
+        y0 = max(0, min(y0, h))
+        y1 = max(0, min(y1, h))
+        x0 = max(0, min(x0, w))
+        x1 = max(0, min(x1, w))
+        cell = certified_map[y0:y1, x0:x1]
+        total_pos = np.sum(certified_map == 1)
+        cell_pos = np.sum(cell == 1)
+        return (cell_pos / total_pos) if total_pos > 0 else 0.0
+
+    @staticmethod
+    def compute_certified_deletion(
+        model,
+        image: np.ndarray,
+        certified_maps: Dict[int, np.ndarray],
+        k_values: list,
+        target_class: int,
+        device: str = 'cpu'
+    ) -> Tuple[list, float]:
+        """
+        Deletion-based faithfulness for certified maps.
+
+        Iteratively remove pixels certified as 1, starting from lowest K,
+        and record the confidence for the target class after each removal.
+        Returns deletion curve and AUC (mean drop proxy).
+        """
+        import torch
+
+        img_tensor = torch.from_numpy(image).unsqueeze(0).to(device)
+        with torch.no_grad():
+            base_out = model(img_tensor)
+            base_conf = torch.softmax(base_out, dim=1)[0, target_class].item()
+
+        deleted = image.copy()
+        deletion_scores = []
+
+        for k in sorted(k_values):
+            if k not in certified_maps:
+                continue
+            cmap = certified_maps[k]
+            ys, xs = np.where(cmap == 1)
+            for y, x in zip(ys, xs):
+                deleted[:, y, x] = 0.0
+            del_tensor = torch.from_numpy(deleted).unsqueeze(0).to(device)
+            with torch.no_grad():
+                out = model(del_tensor)
+                conf = torch.softmax(out, dim=1)[0, target_class].item()
+            deletion_scores.append(conf)
+
+        # AUC proxy: mean normalized drop relative to baseline
+        if len(deletion_scores) == 0:
+            auc = 0.0
+        else:
+            drops = [(base_conf - s) for s in deletion_scores]
+            # Normalize by baseline to be in [0,1]
+            norm_drops = [d / base_conf if base_conf > 0 else 0.0 for d in drops]
+            auc = float(np.mean(norm_drops))
+
+        return deletion_scores, auc

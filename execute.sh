@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Universal execution script for server jobs (training, attribution, certification, etc.)
+# Usage:
+#   Training:     PYTHON_SCRIPT=train_isic_server.py
+#   Attribution:  PYTHON_SCRIPT=attribution_isic_server.py
+#   Certification: PYTHON_SCRIPT=<certification_script>
+
 PROJECT_ROOT="${PROJECT_ROOT:-/home/exml_team007/certified-attribution-medical-imaging}"
 CONDA_PYTHON_BINARY_PATH="${CONDA_PYTHON_BINARY_PATH:-/home/exml_team007/miniconda3/envs/certified-attribution-medical-imaging/bin/python}"
-PYTHON_SCRIPT="${PYTHON_SCRIPT:-train_isic_server.py}"
+PYTHON_SCRIPT="${PYTHON_SCRIPT:-attribution_isic_server.py}"
 
 cd "$PROJECT_ROOT"
 echo "Running $PYTHON_SCRIPT with Python: $CONDA_PYTHON_BINARY_PATH" >&2
