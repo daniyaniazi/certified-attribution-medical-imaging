@@ -181,6 +181,90 @@ def _overlay_k_layers_on_image(img_hwc: np.ndarray, c50: np.ndarray, c25: np.nda
     return overlay
 
 
+def generate_figure4_style_panel(save_dir: Path, model_name: str, all_images_results: list):
+    """Create Figure 4 style panel: rows=images (up to 5), cols=methods with SS and Certified pairs.
+    
+    Args:
+        save_dir: Directory to save the panel
+        model_name: Name of the model
+        all_images_results: List of dicts with keys 'image_tensor' and 'method_results_map'
+    """
+    save_dir.mkdir(parents=True, exist_ok=True)
+    methods_order = ["IntegratedGradients", "GradCAM", "RISE", "Occlusion", "LRP"]
+    
+    # Limit to 5 images
+    all_images_results = all_images_results[:5]
+    n_rows = len(all_images_results)
+    n_cols = len(methods_order) * 2  # SS and Certified for each method
+    
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(3.5 * n_cols, 3.5 * n_rows))
+    if n_rows == 1:
+        axes = axes.reshape(1, -1)
+    
+    for row_idx, img_data in enumerate(all_images_results):
+        img = _tensor_to_hwc(img_data['image_tensor'])
+        method_results_map = img_data['method_results_map']
+        
+        for method_idx, mname in enumerate(methods_order):
+            res_by_k = method_results_map.get(mname, {})
+            col_ss = method_idx * 2
+            col_cert = method_idx * 2 + 1
+            
+            # SS column
+            ax_ss = axes[row_idx, col_ss]
+            ss_map = None
+            if res_by_k:
+                ss_map = next(iter(res_by_k.values())).get("ss_map")
+            ax_ss.imshow(ss_map if ss_map is not None else np.zeros(img.shape[:2]), cmap="gray", vmin=0, vmax=1)
+            if row_idx == 0:
+                ax_ss.set_title(f'{mname}\nSS', fontsize=10, fontweight='bold')
+            ax_ss.axis("off")
+            
+            # Certified column (overlayed K values)
+            ax_cert = axes[row_idx, col_cert]
+            c50 = res_by_k.get(50, {}).get("certified_map")
+            c25 = res_by_k.get(25, {}).get("certified_map")
+            c5 = res_by_k.get(5, {}).get("certified_map")
+            
+            if c50 is None:
+                c50 = np.zeros(img.shape[:2])
+            if c25 is None:
+                c25 = np.zeros(img.shape[:2])
+            if c5 is None:
+                c5 = np.zeros(img.shape[:2])
+            
+            # Create overlay map with priority: K=5% > K=25% > K=50%
+            overlay_map = np.ones(img.shape[:2] + (3,)) * 0.9  # light gray background
+            overlay_map[c50 == 1] = [1.0, 0.65, 0.0]  # orange for top 50%
+            overlay_map[c25 == 1] = [0.9, 0.3, 0.3]  # red for top 25%
+            overlay_map[c5 == 1] = [0.2, 0.0, 0.2]  # dark purple for top 5%
+            
+            ax_cert.imshow(overlay_map)
+            if row_idx == 0:
+                ax_cert.set_title(f'Certified', fontsize=10, fontweight='bold')
+            ax_cert.axis("off")
+    
+    # Add legend
+    import matplotlib.patches as mpatches
+    legend_patches = [
+        mpatches.Patch(color=[1.0, 0.65, 0.0], label='Top 50%'),
+        mpatches.Patch(color=[0.9, 0.3, 0.3], label='Top 25%'),
+        mpatches.Patch(color=[0.2, 0.0, 0.2], label='Top 5%'),
+        mpatches.Patch(color=[0.9, 0.9, 0.9], label='Not certified'),
+    ]
+    fig.legend(handles=legend_patches, loc='lower center', ncol=4, 
+              bbox_to_anchor=(0.5, -0.01), fontsize=11)
+    
+    plt.suptitle(f'{model_name}: Overlayed Certified Attributions (Figure 4 Style)', 
+                fontsize=16, fontweight='bold', y=0.995)
+    plt.tight_layout(rect=[0, 0.01, 1, 0.99])
+    
+    out_path = save_dir / f"{model_name}_figure4_style.png"
+    plt.savefig(out_path, dpi=150, bbox_inches="tight")
+    plt.close()
+    return out_path
+
+
 def generate_paper_panel_all_methods(save_dir: Path, model_name: str, img_idx: int,
                                      img_tensor: torch.Tensor, method_results_map: dict):
     """Create paper-style panel matching Figure 2: rows=methods, cols=Input|SS|K=50/25/5|Overlayed."""
@@ -431,6 +515,9 @@ def main():
         # Track if we've created the paper-style panel for this model
         panel_created = False
         
+        # Collect results for Figure 4 style visualization (5 images)
+        figure4_data = []
+        
         # Images loop
         for img_idx, batch in enumerate(loader):
             if img_idx >= args.num_images:
@@ -504,6 +591,18 @@ def main():
                 out_panel = generate_paper_panel_all_methods(certify_dir, model_name, img_idx, image, method_results_map)
                 print(f"  ✓ Saved paper-style panel: {out_panel}")
                 panel_created = True
+            
+            # Collect data for Figure 4 style visualization (up to 5 images)
+            if len(figure4_data) < 5 and method_results_map:
+                figure4_data.append({
+                    'image_tensor': image,
+                    'method_results_map': method_results_map
+                })
+        
+        # After processing all images for this model, create Figure 4 style visualization
+        if figure4_data:
+            out_fig4 = generate_figure4_style_panel(certify_dir, model_name, figure4_data)
+            print(f"\n  ✓ Saved Figure 4 style panel: {out_fig4} ({len(figure4_data)} images)")
 
     # Final saves
     save_partial()
