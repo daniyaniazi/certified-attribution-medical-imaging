@@ -1,0 +1,31 @@
+{
+  "timestamp": "20251228_190751",
+  "num_models": 6,
+  "models": [
+    "densenet121",
+    "efficientnet_b0",
+    "efficientnet_b1",
+    "mobilenet_v2",
+    "resnet18",
+    "resnet50"
+  ],
+  "num_samples": 10,
+  "methods": [
+    "IntegratedGradients",
+    "GradCAM",
+    "RISE",
+    "Occlusion",
+    "LRP"
+  ],
+  "class_names": [
+    "Class 0",
+    "Class 1",
+    "Class 2",
+    "Class 3",
+    "Class 4",
+    "Class 5",
+    "Class 6",
+    "Class 7"
+  ],
+  "heatmap_structure": "model_name/method_name/sample_*.npy"
+}
