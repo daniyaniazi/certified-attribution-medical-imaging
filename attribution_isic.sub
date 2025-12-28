@@ -3,7 +3,7 @@ docker_image            = nvidia/cuda:12.1.0-runtime-ubuntu22.04
 initialdir              = /home/exml_team007/certified-attribution-medical-imaging
 executable              = execute.sh
 transfer_input_files    = execute.sh
-arguments               = --num_samples 100 --batch_size 4 --num_workers 4
+arguments               = --num_samples 10 --batch_size 4 --num_workers 4
 environment             = "PROJECT_ROOT=/home/exml_team007/certified-attribution-medical-imaging CONDA_PYTHON_BINARY_PATH=/home/exml_team007/miniconda3/envs/certified-attribution-medical-imaging/bin/python PYTHON_SCRIPT=attribution_isic_server.py"
 
 output                  = /home/exml_team007/condor_logs/attribution_isic.$(ClusterId).$(ProcId).out
