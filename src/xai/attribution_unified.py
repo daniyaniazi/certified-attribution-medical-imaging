@@ -137,23 +137,25 @@ class GradCAMUnified(AttributionMethod):
         
         logit.backward(retain_graph=False)
         
-        # Hooks already clone, just use them directly
+        # Hooks already clone, compute CAM without building new graph
         print(f"[DEBUG] GradCAM fix active: hooks clone tensors")  # TEMPORARY DEBUG
-        gradients = self.gradients
-        feature_maps = self.feature_maps
         
-        if gradients is None or feature_maps is None:
-            # Fallback: return zero heatmap
-            h, w = image.shape[-2:]
-            return np.zeros((h, w), dtype=np.float32)
-        
-        weights = torch.mean(gradients, dim=(2, 3), keepdim=True)
-        cam = torch.sum(weights * feature_maps, dim=1)[0]
-        
-        import torch.nn.functional as F
-        cam = F.relu(cam)
-        
-        cam_np = cam.detach().cpu().numpy()
+        with torch.no_grad():
+            gradients = self.gradients
+            feature_maps = self.feature_maps
+            
+            if gradients is None or feature_maps is None:
+                # Fallback: return zero heatmap
+                h, w = image.shape[-2:]
+                return np.zeros((h, w), dtype=np.float32)
+            
+            weights = torch.mean(gradients, dim=(2, 3), keepdim=True)
+            cam = torch.sum(weights * feature_maps, dim=1)[0]
+            
+            import torch.nn.functional as F
+            cam = F.relu(cam)
+            
+            cam_np = cam.cpu().numpy()
         
         # Clear references to allow garbage collection
         self.feature_maps = None
