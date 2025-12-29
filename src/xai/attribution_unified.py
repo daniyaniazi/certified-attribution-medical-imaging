@@ -324,4 +324,6 @@ class LRPUnified(AttributionMethod):
         heatmap = relevance.sum(dim=1)[0]
         heatmap = heatmap.abs().cpu().numpy()
 
-        return self._normalize_attribution(heatmap)
+        # IMPORTANT: NO normalization - preserves rank stability for certification
+        # Normalization happens AFTER certification for visualization only
+        return heatmap
