@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 """
-ISIC Multi-Model Training Script for Server Execution
+Chest X-ray Multi-Model Training Script for Server Execution
 
-Trains multiple model architectures on the ISIC dataset and generates
+Trains multiple model architectures on the Chest X-ray dataset and generates
 comprehensive evaluation reports and visualizations.
 
 Usage:
-    python train_isic_server.py --epochs 50 --batch_size 32
-    python train_isic_server.py --models resnet18 resnet50 --epochs 100
-    python train_isic_server.py --no-eval  # Skip evaluation after training
+    python train_chestxray_server.py --epochs 50 --batch_size 32
+    python train_chestxray_server.py --models resnet18 resnet50 --epochs 100
+    python train_chestxray_server.py --no-eval  # Skip evaluation after training
 """
 
 import os
@@ -35,12 +35,12 @@ if str(ROOT) not in sys.path:
 
 from src.train.train_one import Trainer
 from src.models.factory import get_model
-from src.datasets.isic import ISICDataset
+from src.datasets.chestxray import ChestXrayDataset
 
 
 def parse_args():
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description='Train ISIC models on server')
+    parser = argparse.ArgumentParser(description='Train Chest X-ray models on server')
     
     # Model configuration
     parser.add_argument('--models', nargs='+', 
@@ -59,16 +59,16 @@ def parse_args():
                        help='Input image size (default: 224)')
     
     # Data paths
-    parser.add_argument('--data_root', type=str, default='data/raw/isic',
-                       help='Path to ISIC dataset (default: data/raw/isic)')
+    parser.add_argument('--data_root', type=str, default='data/raw/chestxray',
+                       help='Path to Chest X-ray dataset (default: data/raw/chestxray)')
     
     # Output paths
-    parser.add_argument('--checkpoint_dir', type=str, default='outputs/checkpoints/isic',
-                       help='Directory to save checkpoints (default: outputs/checkpoints/isic)')
-    parser.add_argument('--log_dir', type=str, default='outputs/logs/isic',
-                       help='Directory to save logs (default: outputs/logs/isic)')
-    parser.add_argument('--metrics_dir', type=str, default='outputs/metrics/isic',
-                       help='Directory to save metrics (default: outputs/metrics/isic)')
+    parser.add_argument('--checkpoint_dir', type=str, default='outputs/checkpoints/chestxray',
+                       help='Directory to save checkpoints (default: outputs/checkpoints/chestxray)')
+    parser.add_argument('--log_dir', type=str, default='outputs/logs/chestxray',
+                       help='Directory to save logs (default: outputs/logs/chestxray)')
+    parser.add_argument('--metrics_dir', type=str, default='outputs/metrics/chestxray',
+                       help='Directory to save metrics (default: outputs/metrics/chestxray)')
     parser.add_argument('--reports_dir', type=str, default='outputs/reports',
                        help='Directory to save reports (default: outputs/reports)')
     
@@ -144,17 +144,16 @@ def verify_data(data_root):
     
     for split in ['train', 'val', 'test']:
         split_dir = data_path / split
-        images_dir = split_dir / 'images'
-        labels_file = split_dir / 'labels.json'
         
         print(f'\n{split}/:')
         print(f'  Directory: {split_dir.exists()}')
-        print(f'  images/: {images_dir.exists()}')
-        print(f'  labels.json: {labels_file.exists()}')
         
-        if images_dir.exists():
-            image_files = [f for f in os.listdir(images_dir) 
-                          if f.endswith(('.jpg', '.png', '.jpeg'))]
+        if split_dir.exists():
+            # Count image files recursively
+            image_files = []
+            for root, dirs, files in os.walk(split_dir):
+                image_files.extend([f for f in files 
+                                  if f.endswith(('.jpg', '.png', '.jpeg'))])
             print(f'  Image count: {len(image_files)}')
     
     print('\n✓ Data verification complete')
@@ -171,7 +170,6 @@ def load_datasets(data_root, img_size, batch_size, num_workers):
     train_transform = transforms.Compose([
         transforms.Resize((img_size, img_size)),
         transforms.RandomHorizontalFlip(p=0.5),
-        transforms.RandomVerticalFlip(p=0.5),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], 
                            std=[0.229, 0.224, 0.225])
@@ -186,13 +184,13 @@ def load_datasets(data_root, img_size, batch_size, num_workers):
     
     # Load datasets
     print(f'Loading datasets with image size {img_size}x{img_size}...')
-    train_dataset = ISICDataset(
+    train_dataset = ChestXrayDataset(
         str(data_root), 
         split='train', 
         transform=train_transform, 
         target_size=(img_size, img_size)
     )
-    val_dataset = ISICDataset(
+    val_dataset = ChestXrayDataset(
         str(data_root), 
         split='val', 
         transform=val_transform, 
@@ -244,7 +242,7 @@ def infer_num_classes(dataset):
         labels = [dataset[i]['label'] for i in range(min(len(dataset), 200))]
         return len(set(int(l) for l in labels))
     except Exception:
-        return 8  # ISIC default
+        return 2  # Chest X-ray default (NORMAL, PNEUMONIA)
 
 
 def train_model(model_name, train_loader, val_loader, num_classes, 
@@ -558,7 +556,7 @@ def plot_training_curves(models, log_dir, reports_dir):
         ax.legend(lines1 + lines2, labels1 + labels2, loc='upper right', fontsize=8)
     
     plt.tight_layout()
-    save_path = reports_dir / 'training_curves.png'
+    save_path = reports_dir / 'chestxray_training_curves.png'
     plt.savefig(save_path, dpi=150, bbox_inches='tight')
     plt.close()
     print(f'  ✓ Training curves: {save_path}')
@@ -583,13 +581,13 @@ def plot_model_comparison(eval_results, best_model_name, reports_dir):
     
     plt.xlabel('Model', fontsize=12, fontweight='bold')
     plt.ylabel('Validation Accuracy (%)', fontsize=12, fontweight='bold')
-    plt.title('Model Comparison - Validation Accuracy', fontsize=14, fontweight='bold')
+    plt.title('Model Comparison - Validation Accuracy (Chest X-ray)', fontsize=14, fontweight='bold')
     plt.xticks(range(len(model_names)), model_names, rotation=45, ha='right')
     plt.ylim(0, 100)
     plt.grid(axis='y', alpha=0.3, linestyle='--')
     plt.tight_layout()
     
-    save_path = reports_dir / 'model_comparison.png'
+    save_path = reports_dir / 'chestxray_model_comparison.png'
     plt.savefig(save_path, dpi=150, bbox_inches='tight')
     plt.close()
     print(f'  ✓ Model comparison: {save_path}')
@@ -603,14 +601,14 @@ def plot_confusion_matrix(result, model_name, class_names, reports_dir):
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
                xticklabels=class_names, yticklabels=class_names,
                cbar_kws={'label': 'Count'})
-    plt.title(f'Confusion Matrix - {model_name}', fontsize=14, fontweight='bold')
+    plt.title(f'Confusion Matrix - {model_name} (Chest X-ray)', fontsize=14, fontweight='bold')
     plt.xlabel('Predicted Label', fontsize=12, fontweight='bold')
     plt.ylabel('True Label', fontsize=12, fontweight='bold')
     plt.xticks(rotation=45, ha='right')
     plt.yticks(rotation=0)
     plt.tight_layout()
     
-    save_path = reports_dir / 'confusion_matrix.png'
+    save_path = reports_dir / 'chestxray_confusion_matrix.png'
     plt.savefig(save_path, dpi=150, bbox_inches='tight')
     plt.close()
     print(f'  ✓ Confusion matrix: {save_path}')
@@ -621,9 +619,9 @@ def save_classification_report(result, model_name, class_names, reports_dir):
     report = classification_report(result['labels'], result['predictions'],
                                    target_names=class_names, digits=4)
     
-    report_path = reports_dir / 'classification_report.txt'
+    report_path = reports_dir / 'chestxray_classification_report.txt'
     with open(report_path, 'w') as f:
-        f.write(f"Classification Report - {model_name}\n")
+        f.write(f"Classification Report - {model_name} (Chest X-ray)\n")
         f.write("="*80 + "\n\n")
         f.write(report)
     
@@ -635,7 +633,7 @@ def main():
     args = parse_args()
     
     print('\n' + '='*80)
-    print('ISIC MULTI-MODEL TRAINING')
+    print('CHEST X-RAY MULTI-MODEL TRAINING')
     print('='*80)
     print(f'Models: {", ".join(args.models)}')
     print(f'Epochs: {args.epochs}')
