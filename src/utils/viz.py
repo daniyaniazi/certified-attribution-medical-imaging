@@ -36,6 +36,18 @@ def save_attribution_heatmap(
     if len(image.shape) == 2:
         image = np.stack([image] * 3, axis=-1)
     
+    # Only normalize if values are outside [0,1] (i.e., LRP)
+    # Other methods (IG, GradCAM, RISE, Occlusion) already return [0,1] values
+    attr_min, attr_max = attribution.min(), attribution.max()
+    if attr_min >= 0 and attr_max <= 1:
+        # Already normalized, keep as-is
+        attribution_viz = attribution
+    elif attr_max - attr_min > 1e-8:
+        # Unnormalized (LRP), normalize to [0,1]
+        attribution_viz = (attribution - attr_min) / (attr_max - attr_min)
+    else:
+        attribution_viz = np.zeros_like(attribution)
+    
     # Create figure
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     
@@ -45,14 +57,14 @@ def save_attribution_heatmap(
     axes[0].axis('off')
     
     # Attribution map
-    im = axes[1].imshow(attribution, cmap=cmap, vmin=0, vmax=1)
+    im = axes[1].imshow(attribution_viz, cmap=cmap, vmin=0, vmax=1)
     axes[1].set_title("Attribution Map")
     axes[1].axis('off')
     plt.colorbar(im, ax=axes[1])
     
     # Overlay
     axes[2].imshow(image)
-    axes[2].imshow(attribution, cmap=cmap, alpha=alpha, vmin=0, vmax=1)
+    axes[2].imshow(attribution_viz, cmap=cmap, alpha=alpha, vmin=0, vmax=1)
     axes[2].set_title("Overlay")
     axes[2].axis('off')
     

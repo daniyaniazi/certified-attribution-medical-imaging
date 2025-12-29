@@ -30,6 +30,20 @@ from src.xai.attribution_unified import (
 from src.certify.smoothing import RandomizedSmoothingAttributor
 
 
+def normalize_for_viz(heatmap):
+    """Only normalize if values are outside [0,1] range (i.e., LRP)."""
+    if heatmap is None:
+        return None
+    h_min, h_max = heatmap.min(), heatmap.max()
+    # If already in [0,1], keep as-is (IG, GradCAM, RISE, Occlusion)
+    if h_min >= 0 and h_max <= 1:
+        return heatmap
+    # Otherwise normalize (LRP)
+    if h_max - h_min < 1e-8:
+        return np.zeros_like(heatmap)
+    return (heatmap - h_min) / (h_max - h_min)
+
+
 def get_target_layer(model: nn.Module, model_name: str):
     """Return last conv layer suitable for Grad-CAM across common backbones."""
     name = model_name.lower()
@@ -142,7 +156,9 @@ def save_artifacts(base_dir: Path, model_name: str, method_name: str, k: int, im
         plt.savefig(viz_dir / fname, dpi=150, bbox_inches="tight")
         plt.close()
 
-    _save_overlay(clean, "inferno", f"Clean heatmap (K={k}%)", f"img_{img_idx}_clean.png")
+    # Normalize clean heatmap only if needed (LRP is unnormalized)
+    clean_viz = normalize_for_viz(clean)
+    _save_overlay(clean_viz, "inferno", f"Clean heatmap (K={k}%)", f"img_{img_idx}_clean.png")
     _save_overlay(ss_map, "magma", "Smoothed sparsified map", f"img_{img_idx}_ssmap.png", vmin=0, vmax=1)
 
     if c_map is not None:
