@@ -1,0 +1,13 @@
+Classification Report - efficientnet_b0 (Brain MRI)
+================================================================================
+
+                  precision    recall  f1-score   support
+
+          normal     0.9957    1.0000    0.9978       459
+    glioma_tumor     0.9989    0.9979    0.9984       946
+meningioma_tumor     0.9979    0.9990    0.9984       958
+ pituitary_tumor     1.0000    0.9977    0.9989       886
+
+        accuracy                         0.9985      3249
+       macro avg     0.9981    0.9986    0.9984      3249
+    weighted avg     0.9985    0.9985    0.9985      3249

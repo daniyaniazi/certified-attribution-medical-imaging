@@ -1,0 +1,14 @@
+{
+  "final_train_loss": 0.0007860211186209445,
+  "final_val_auc": 0.9056541748849442,
+  "final_val_accuracy": 0.7419871794871795,
+  "history_summary": {
+    "train_loss": 0.0007860211186209445,
+    "train_accuracy": 0.9994248466257669,
+    "train_auc": 0.9999996151163071,
+    "val_accuracy": 0.7419871794871795,
+    "val_auc": 0.9056541748849442,
+    "val_f1": 0.8285410010649628
+  },
+  "total_epochs": 50
+}
