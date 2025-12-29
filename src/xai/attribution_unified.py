@@ -135,7 +135,8 @@ class GradCAMUnified(AttributionMethod):
         if image.grad is not None:
             image.grad.zero_()
         
-        logit.backward(retain_graph=False)
+        # Keep graph around to avoid freed-tensor errors when hooks access saved values
+        logit.backward(retain_graph=True)
         
         # Hooks already clone, compute CAM without building new graph
         print(f"[DEBUG] GradCAM fix active: hooks clone tensors")  # TEMPORARY DEBUG
