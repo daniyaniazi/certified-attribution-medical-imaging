@@ -110,10 +110,10 @@ class GradCAMUnified(AttributionMethod):
         self.target_layer.register_backward_hook(self._save_gradients)
     
     def _save_features(self, module, input, output):
-        self.feature_maps = output.detach()
+        self.feature_maps = output.detach().clone()
     
     def _save_gradients(self, module, grad_input, grad_output):
-        self.gradients = grad_output[0].detach()
+        self.gradients = grad_output[0].detach().clone()
     
     def attribute(self, image: torch.Tensor, target_class: int) -> np.ndarray:
         """Grad-CAM attribution."""
@@ -136,9 +136,10 @@ class GradCAMUnified(AttributionMethod):
         
         logit.backward(retain_graph=False)
         
-        # Make defensive copies to avoid freed tensor issues
-        gradients = self.gradients.clone() if self.gradients is not None else None
-        feature_maps = self.feature_maps.clone() if self.feature_maps is not None else None
+        # Hooks already clone, just use them directly
+        print(f"[DEBUG] GradCAM fix active: hooks clone tensors")  # TEMPORARY DEBUG
+        gradients = self.gradients
+        feature_maps = self.feature_maps
         
         if gradients is None or feature_maps is None:
             # Fallback: return zero heatmap

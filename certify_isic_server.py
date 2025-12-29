@@ -368,8 +368,8 @@ def generate_paper_panel_all_methods(save_dir: Path, model_name: str, img_idx: i
 def build_attr_methods(model: nn.Module, device: str, model_name: str):
     tl = get_target_layer(model, model_name)
     return {
-        "IntegratedGradients": IntegratedGradientsUnified(model, device),
         "GradCAM": GradCAMUnified(model, tl, device),
+        "IntegratedGradients": IntegratedGradientsUnified(model, device),
         "RISE": RISEUnified(model, device),
         "Occlusion": OcclusionUnified(model, device),
         "LRP": LRPUnified(model, device, epsilon=1e-6),
