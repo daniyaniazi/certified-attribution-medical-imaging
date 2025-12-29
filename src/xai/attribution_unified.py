@@ -123,14 +123,27 @@ class GradCAMUnified(AttributionMethod):
         image = image.to(self.device)
         image.requires_grad_(True)
         
+        # Reset stored tensors to avoid stale references
+        self.feature_maps = None
+        self.gradients = None
+        
         output = self.model(image)
         logit = output[0, target_class]
         
         self.model.zero_grad()
+        if image.grad is not None:
+            image.grad.zero_()
+        
         logit.backward(retain_graph=False)
         
-        gradients = self.gradients
-        feature_maps = self.feature_maps
+        # Make defensive copies to avoid freed tensor issues
+        gradients = self.gradients.clone() if self.gradients is not None else None
+        feature_maps = self.feature_maps.clone() if self.feature_maps is not None else None
+        
+        if gradients is None or feature_maps is None:
+            # Fallback: return zero heatmap
+            h, w = image.shape[-2:]
+            return np.zeros((h, w), dtype=np.float32)
         
         weights = torch.mean(gradients, dim=(2, 3), keepdim=True)
         cam = torch.sum(weights * feature_maps, dim=1)[0]
@@ -139,6 +152,11 @@ class GradCAMUnified(AttributionMethod):
         cam = F.relu(cam)
         
         cam_np = cam.detach().cpu().numpy()
+        
+        # Clear references to allow garbage collection
+        self.feature_maps = None
+        self.gradients = None
+        
         return self._normalize_attribution(cam_np)
 
 
