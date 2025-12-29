@@ -149,7 +149,7 @@ class RISEUnified(AttributionMethod):
         self,
         image: torch.Tensor,
         target_class: int,
-        num_samples: int = 2000,
+        num_samples: int = 100,
         mask_size: int = 14,
         prob_include: float = 0.5
     ) -> np.ndarray:

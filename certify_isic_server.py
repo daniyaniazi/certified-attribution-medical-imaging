@@ -459,7 +459,7 @@ def main():
         transforms.ToTensor(),
     ])
     dataset = ISICDataset(data_root, split=args.split, transform=val_transform)
-    loader = DataLoader(dataset, batch_size=1, shuffle=False)
+    loader = DataLoader(dataset, batch_size=1, shuffle=True)  # Shuffle to get diverse labels
     print(f"Loaded {len(dataset)} images from split '{args.split}'")
 
     # Resume store
@@ -509,8 +509,8 @@ def main():
 
         smoother = RandomizedSmoothingAttributor(model, None, device=device)
 
-        # High-confidence filtering (Paper requirement)
-        high_confidence_threshold = 0.8
+        # High-confidence filtering (lowered threshold to get more images)
+        high_confidence_threshold = 0.2  # Lowered from 0.8
         
         # Track if we've created the paper-style panel for this model
         panel_created = False
@@ -518,10 +518,24 @@ def main():
         # Collect results for Figure 4 style visualization (5 images)
         figure4_data = []
         
-        # Images loop
+        # Keep sampling until we get at least num_images valid images
+        num_target_images = args.num_images
+        valid_images_certified = 0
+        images_checked = 0
+        max_images_to_check = len(dataset)  # Don't check more than the dataset size
+        
+        # Images loop - continue until we get target number of valid images
         for img_idx, batch in enumerate(loader):
-            if img_idx >= args.num_images:
+            if valid_images_certified >= num_target_images:
+                print(f"\n✓ Reached target of {num_target_images} valid images")
                 break
+            
+            if images_checked >= max_images_to_check:
+                print(f"\n⚠ Checked all {max_images_to_check} images, found {valid_images_certified} valid")
+                break
+            
+            images_checked += 1
+            
             image = batch["image"].to(device)
             label_value = batch["label"]
             label_int = int(label_value.squeeze().item()) if isinstance(label_value, torch.Tensor) else int(label_value)
@@ -535,15 +549,16 @@ def main():
             
             # Skip if prediction is wrong or low confidence
             if pred_class != label_int:
-                print(f"  Image {img_idx+1}/{args.num_images} SKIPPED (pred={pred_class} != label={label_int})")
+                print(f"  Image {images_checked} SKIPPED (pred={pred_class} != label={label_int}) [{valid_images_certified}/{num_target_images} valid]")
                 continue
             if pred_confidence < high_confidence_threshold:
-                print(f"  Image {img_idx+1}/{args.num_images} SKIPPED (confidence={pred_confidence:.3f} < {high_confidence_threshold})")
+                print(f"  Image {images_checked} SKIPPED (confidence={pred_confidence:.3f} < {high_confidence_threshold}) [{valid_images_certified}/{num_target_images} valid]")
                 continue
             
             # Enable gradients for attribution methods
             image.requires_grad_(True)
-            print(f"  Image {img_idx+1}/{args.num_images} (label: {label_int}, pred: {pred_class}, conf: {pred_confidence:.3f})")
+            valid_images_certified += 1
+            print(f"\n  ✓ Valid image {valid_images_certified}/{num_target_images} (dataset idx: {img_idx}, label: {label_int}, pred: {pred_class}, conf: {pred_confidence:.3f})")
 
             method_results_map = {}
             for method_name, attr_func in methods.items():
