@@ -120,7 +120,8 @@ class GradCAMUnified(AttributionMethod):
         if image.dim() == 3:
             image = image.unsqueeze(0)
         
-        image = image.to(self.device)
+        # Clone input to create fresh computational graph for each call
+        image = image.clone().to(self.device)
         image.requires_grad_(True)
         
         # Reset stored tensors to avoid stale references
