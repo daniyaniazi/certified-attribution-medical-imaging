@@ -499,9 +499,6 @@ def main():
         # High-confidence filtering (lowered threshold to get more images)
         high_confidence_threshold = 0.2  # Lowered from 0.8
         
-        # Track if we've created the paper-style panel for this model
-        panel_created = False
-        
         # Collect results for Figure 4 style visualization (5 images)
         figure4_data = []
         
@@ -588,11 +585,10 @@ def main():
 
                 method_results_map[method_name] = results_by_k
 
-            # After all methods for this image, create paper-style panel for FIRST successfully certified image per model
-            if not panel_created and method_results_map:
+            # After all methods for this image, create paper-style panel for each certified image
+            if method_results_map:
                 out_panel = generate_paper_panel_all_methods(certify_dir, model_name, img_idx, image, method_results_map)
                 print(f"  ✓ Saved paper-style panel: {out_panel}")
-                panel_created = True
             
             # Collect data for Figure 4 style visualization (up to 5 images)
             if len(figure4_data) < 5 and method_results_map:
