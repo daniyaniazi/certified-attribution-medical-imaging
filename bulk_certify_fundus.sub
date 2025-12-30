@@ -2,7 +2,7 @@
 # Runs in docker container with parallel GPU support
 
 universe                = docker
-docker_image            = pytorch/pytorch:2.0.1-cuda11.8-cudnn8-devel
+docker_image            = nvidia/cuda:12.1.0-runtime-ubuntu22.04
 initialdir              = /home/exml_team007/certified-attribution-medical-imaging
 executable              = bulk_certify_fundus.sh
 transfer_input_files    = bulk_certify_fundus.sh
