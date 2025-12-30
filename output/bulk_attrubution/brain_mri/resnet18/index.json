@@ -1,0 +1,22 @@
+{
+  "timestamp": "20251230_021516",
+  "num_models": 1,
+  "models": [
+    "resnet18"
+  ],
+  "num_samples": 10,
+  "methods": [
+    "IntegratedGradients",
+    "GradCAM",
+    "RISE",
+    "Occlusion",
+    "LRP"
+  ],
+  "class_names": [
+    "normal",
+    "glioma_tumor",
+    "meningioma_tumor",
+    "pituitary_tumor"
+  ],
+  "heatmap_structure": "model_name/method_name/sample_*.npy"
+}

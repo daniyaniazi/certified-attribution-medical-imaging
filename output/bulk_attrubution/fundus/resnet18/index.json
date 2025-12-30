@@ -1,0 +1,23 @@
+{
+  "timestamp": "20251230_021718",
+  "num_models": 1,
+  "models": [
+    "resnet18"
+  ],
+  "num_samples": 10,
+  "methods": [
+    "IntegratedGradients",
+    "GradCAM",
+    "RISE",
+    "Occlusion",
+    "LRP"
+  ],
+  "class_names": [
+    "No DR",
+    "Mild",
+    "Moderate",
+    "Severe",
+    "Proliferative DR"
+  ],
+  "heatmap_structure": "model_name/method_name/sample_*.npy"
+}

@@ -1,0 +1,20 @@
+{
+  "timestamp": "20251230_021316",
+  "num_models": 1,
+  "models": [
+    "resnet18"
+  ],
+  "num_samples": 10,
+  "methods": [
+    "IntegratedGradients",
+    "GradCAM",
+    "RISE",
+    "Occlusion",
+    "LRP"
+  ],
+  "class_names": [
+    "NORMAL",
+    "PNEUMONIA"
+  ],
+  "heatmap_structure": "model_name/method_name/sample_*.npy"
+}

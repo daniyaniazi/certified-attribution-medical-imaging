@@ -1,0 +1,14 @@
+Classification Report - resnet50 (Fundus)
+================================================================================
+
+                  precision    recall  f1-score   support
+
+           No DR     0.9826    0.9826    0.9826       172
+            Mild     0.6154    0.8000    0.6957        40
+        Moderate     0.7615    0.7981    0.7793       104
+          Severe     0.7778    0.3182    0.4516        22
+Proliferative DR     0.7083    0.6071    0.6538        28
+
+        accuracy                         0.8415       366
+       macro avg     0.7691    0.7012    0.7126       366
+    weighted avg     0.8463    0.8415    0.8364       366
