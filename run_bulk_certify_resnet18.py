@@ -40,7 +40,7 @@ DATASETS = [
 
 def run_cert(dataset: dict):
     name = dataset["name"]
-    out_base = PROJECT_ROOT / "output" / "bulk_certifcation" / name / "resnet18"
+    out_base = PROJECT_ROOT / "outputs" / "bulk_certifcation" / name / "resnet18"
     heatmap_dir = out_base / "certified_maps"
     out_base.mkdir(parents=True, exist_ok=True)
     heatmap_dir.mkdir(parents=True, exist_ok=True)

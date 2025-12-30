@@ -36,7 +36,7 @@ DATASETS = [
 
 def run_attr(dataset: dict):
     name = dataset["name"]
-    out_base = PROJECT_ROOT / "output" / "bulk_attrubution" / name / "resnet18"
+    out_base = PROJECT_ROOT / "outputs" / "bulk_attrubution" / name / "resnet18"
     log_dir = out_base / "logs"
     out_base.mkdir(parents=True, exist_ok=True)
     log_dir.mkdir(parents=True, exist_ok=True)
