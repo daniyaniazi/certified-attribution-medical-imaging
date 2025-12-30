@@ -21,7 +21,7 @@ if str(ROOT) not in sys.path:
 
 # Local imports from repo
 from src.models.factory import get_model
-from src.datasets.base import BrainMRIDataset
+from src.datasets.brain_mri import BrainMRIDataset
 from src.xai.attribution_unified import (
     IntegratedGradientsUnified,
     GradCAMUnified,
