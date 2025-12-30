@@ -1,0 +1,89 @@
+#!/usr/bin/env python
+"""Bulk certification runner for resnet18 on ISIC dataset.
+Configurable via environment variables and command-line args.
+Outputs: outputs/bulk_certifcation/isic/resnet18/
+"""
+
+import subprocess
+import sys
+import argparse
+import os
+from pathlib import Path
+
+def get_default_paths():
+    """Get default paths from environment or use workspace defaults."""
+    project_root = Path(os.environ.get("PROJECT_ROOT", ".")).resolve()
+    
+    return {
+        "project_root": project_root,
+        "python_exe": os.environ.get("CONDA_PYTHON_BINARY_PATH", sys.executable),
+        "dataset": "isic",
+        "script": project_root / "certify_isic_server.py",
+        "checkpoints": project_root / "outputs" / "checkpoints" / "isic",
+        "data_root": project_root / "data" / "raw" / "isic",
+        "output_base": project_root / "outputs" / "bulk_certifcation" / "isic" / "resnet18",
+    }
+
+def parse_args():
+    p = argparse.ArgumentParser(description="Bulk certification for ISIC + resnet18")
+    defaults = get_default_paths()
+    
+    p.add_argument("--project_root", default=str(defaults["project_root"]), help="Project root directory")
+    p.add_argument("--python", default=defaults["python_exe"], help="Python executable path")
+    p.add_argument("--data_root", default=str(defaults["data_root"]), help="Data root directory")
+    p.add_argument("--checkpoint_dir", default=str(defaults["checkpoints"]), help="Checkpoint directory")
+    p.add_argument("--output_base", default=str(defaults["output_base"]), help="Output base directory")
+    p.add_argument("--num_images", type=int, default=100, help="Number of images to certify")
+    p.add_argument("--num_samples", type=int, default=100, help="Randomized smoothing samples")
+    p.add_argument("--batch_size", type=int, default=16, help="Batch size for inference")
+    p.add_argument("--sigma", type=float, default=0.15, help="Smoothing sigma")
+    p.add_argument("--tau", type=float, default=0.75, help="Certification threshold tau")
+    p.add_argument("--alpha", type=float, default=0.001, help="Alpha parameter")
+    p.add_argument("--k_percents", nargs="+", default=["50", "25", "5"], help="K percentages for certification")
+    p.add_argument("--panel_examples", type=int, default=3, help="Number of images to save full panels for")
+    p.add_argument("--save_noisy", action="store_true", default=True, help="Save noisy samples")
+    
+    return p.parse_args()
+
+def run_certification(args):
+    project_root = Path(args.project_root)
+    script = project_root / "certify_isic_server.py"
+    output_base = Path(args.output_base)
+    heatmap_dir = output_base / "certified_maps"
+    
+    output_base.mkdir(parents=True, exist_ok=True)
+    heatmap_dir.mkdir(parents=True, exist_ok=True)
+    
+    cmd = [
+        args.python,
+        str(script),
+        "--checkpoint_dir", args.checkpoint_dir,
+        "--data_root", args.data_root,
+        "--split", "val",
+        "--certify_dir", str(output_base),
+        "--heatmap_dir", str(heatmap_dir),
+        "--num_images", str(args.num_images),
+        "--num_samples", str(args.num_samples),
+        "--batch_size", str(args.batch_size),
+        "--sigma", str(args.sigma),
+        "--tau", str(args.tau),
+        "--alpha", str(args.alpha),
+        "--k_percents", *args.k_percents,
+        "--panel_examples", str(args.panel_examples),
+        "--models", "resnet18",
+    ]
+    
+    if args.save_noisy:
+        cmd.append("--save_noisy_samples")
+    
+    print(f"===== ISIC: resnet18 certification ({args.num_images} images) =====")
+    print(f"Command: {' '.join(cmd)}")
+    subprocess.run(cmd, check=True)
+    print("✓ ISIC certification complete.")
+
+def main():
+    args = parse_args()
+    run_certification(args)
+
+if __name__ == "__main__":
+    main()
