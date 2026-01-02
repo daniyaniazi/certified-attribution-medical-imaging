@@ -1,21 +1,23 @@
 #!/bin/bash
-# Execute faithfulness evaluation for Experiment 1
-# Loads certification results and computes faithfulness metrics
-# Run from repo root: bash execute_experiment1_eval_faithfulness.sh
 
-cd "$(dirname "$0")" || exit 1
+# Experiment 1 Faithfulness Evaluation
+# Computes faithfulness metrics from certification results.
+# Expects PROJECT_ROOT and CONDA_PYTHON_BINARY_PATH in environment.
+
+set -euo pipefail
+
+cd "$PROJECT_ROOT"
 
 echo "=========================================="
-echo "Experiment 1: Faithfulness Evaluation"
+echo "Experiment1 Faithfulness Evaluation"
+echo "=========================================="
+echo "Project Root: $PROJECT_ROOT"
+echo "Python Binary: $CONDA_PYTHON_BINARY_PATH"
+echo "Arguments: $@"
 echo "=========================================="
 
-python experiment1_eval_faithfulness.py \
-  --certifications_root outputs/certifications \
-  --output_root outputs/experiment1/faithfulness \
-  --checkpoint_root outputs/checkpoints \
-  --datasets brain_mri chestxray fundus isic \
-  --models resnet18 densenet121 mobilenet_v2 efficientnet_b1 \
-  --device cuda \
-  --deletion_steps 5
+$CONDA_PYTHON_BINARY_PATH experiment1_eval_faithfulness.py "$@"
 
-echo "Done!"
+echo "=========================================="
+echo "Experiment1 Faithfulness Evaluation COMPLETE"
+echo "=========================================="
