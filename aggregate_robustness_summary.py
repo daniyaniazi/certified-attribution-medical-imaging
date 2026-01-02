@@ -210,6 +210,13 @@ def plot_dataset_stacked(dataset_name: str, dataset_dir: Path, checkpoint_root: 
         f"(Dataset: {dataset_name.upper()}, Avg across models)"
     )
     
+    # Also save to dataset root for easy access
+    plot_stacked_avg(
+        aggregated,
+        dataset_dir / "avg_robustness.png",
+        f"(Dataset: {dataset_name.upper()}, Avg across all models)"
+    )
+    
     return dataset_results
 
 
