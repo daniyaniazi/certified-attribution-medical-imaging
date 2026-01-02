@@ -176,9 +176,20 @@ class FaithfulnessEvaluator(BaseEvaluator):
             del_conf = _forward_conf(deleted_img)
             deletion_confs.append(del_conf)
         
-        # Compute AUC
-        drops = [baseline_conf - c for c in deletion_confs]
-        auc = float(np.mean([d / baseline_conf if baseline_conf > 0 else 0.0 for d in drops]))
+        # Compute AUC using trapezoidal rule on normalized confidence curve
+        # Prepend baseline to get full curve: [baseline, step1, step2, ..., stepN]
+        conf_curve = [baseline_conf] + deletion_confs
+        # Normalize to [0, 1] range (1 = baseline, 0 = fully dropped)
+        if baseline_conf > 1e-6:
+            normalized_curve = [c / baseline_conf for c in conf_curve]
+        else:
+            normalized_curve = [0.0] * len(conf_curve)
+        # Compute AUC: higher AUC = better faithfulness (steeper drop)
+        # We want 1 - AUC to get "drop metric" where higher = more faithful
+        x_vals = np.linspace(0, 1, len(normalized_curve))
+        auc_raw = float(np.trapz(normalized_curve, x_vals))
+        # Invert: auc=1 means no drop (bad), auc=0 means full drop (good)
+        auc = 1.0 - auc_raw
 
         # Localization metric: fraction of certified-1 pixels inside target cell (if provided)
         loc_frac = None

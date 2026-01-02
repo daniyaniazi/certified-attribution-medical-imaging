@@ -343,6 +343,107 @@ def plot_summary_bar(summary_json: Path, out_dir: Path):
     print(f"  ✓ Summary bar written to {out_path}")
 
 
+def aggregate_confidence_curves(root: Path):
+    """Aggregate confidence curves per dataset and overall from cached JSON files."""
+    dataset_curves = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+    overall_curves = defaultdict(lambda: defaultdict(list))
+    
+    for dpath in root.iterdir():
+        if not dpath.is_dir() or dpath.name == "summary":
+            continue
+        dataset_name = dpath.name
+        
+        for mdir in dpath.iterdir():
+            if not mdir.is_dir():
+                continue
+            
+            # Load confidence curves data
+            conf_data_path = mdir / "figures" / "faithfulness_confidence_curves_data.json"
+            if not conf_data_path.exists():
+                continue
+            
+            try:
+                conf_data = load_json(conf_data_path)
+                step_fracs = conf_data.get("step_fracs", [])
+                k_values_dict = conf_data.get("k_values", {})
+                
+                for k_str, k_entry in k_values_dict.items():
+                    k_val = int(k_str)
+                    for method, stats in k_entry.get("methods", {}).items():
+                        mean_conf = stats.get("mean_conf", [])
+                        if mean_conf:
+                            dataset_curves[dataset_name][method][k_val].append(mean_conf)
+                            overall_curves[method][k_val].append(mean_conf)
+            except Exception as e:
+                print(f"[WARN] Failed to load confidence data from {conf_data_path}: {e}")
+                continue
+    
+    # Average curves per dataset
+    dataset_avg = {}
+    for dataset_name, method_dict in dataset_curves.items():
+        dataset_avg[dataset_name] = {"step_fracs": step_fracs}
+        for method, k_dict in method_dict.items():
+            for k_val, curves_list in k_dict.items():
+                if curves_list:
+                    avg_curve = np.mean(curves_list, axis=0).tolist()
+                    dataset_avg[dataset_name].setdefault(method, {})[k_val] = avg_curve
+    
+    # Average curves overall
+    overall_avg = {"step_fracs": step_fracs}
+    for method, k_dict in overall_curves.items():
+        for k_val, curves_list in k_dict.items():
+            if curves_list:
+                avg_curve = np.mean(curves_list, axis=0).tolist()
+                overall_avg.setdefault(method, {})[k_val] = avg_curve
+    
+    return dataset_avg, overall_avg, step_fracs
+
+
+def plot_confidence_curves(curves_dict: dict, step_fracs: list, output_path: Path, title: str):
+    """Plot GT confidence vs deletion steps (Figure 8 style)."""
+    methods_order = ["IntegratedGradients", "GradCAM", "RISE", "Occlusion", "LRP"]
+    k_values = sorted({k for m in curves_dict.keys() if m in methods_order for k in curves_dict[m].keys()})
+    
+    if not k_values:
+        print(f"[WARN] No K values for confidence curves in {title}")
+        return
+    
+    fig, axes = plt.subplots(1, len(k_values), figsize=(6 * len(k_values), 6), sharey=True)
+    if len(k_values) == 1:
+        axes = [axes]
+    
+    step_labels = ['Orig'] + [f"{int(frac*100)}%" for frac in step_fracs[1:]] if step_fracs else []
+    
+    for ax_idx, k_val in enumerate(k_values):
+        ax = axes[ax_idx]
+        for method in methods_order:
+            if method not in curves_dict or k_val not in curves_dict[method]:
+                continue
+            conf_curve = curves_dict[method][k_val]
+            color = METHOD_COLORS.get(method, f'C{methods_order.index(method)}')
+            ax.plot(step_labels, conf_curve, marker='o', label=method, color=color, linewidth=2)
+        
+        ax.set_xlabel('Deletion steps', fontsize=12, fontweight='bold')
+        ax.set_title(f'K={k_val}%', fontsize=13, fontweight='bold')
+        ax.set_ylim(bottom=0.0, top=1.0)
+        ax.grid(alpha=0.3)
+    
+    axes[0].set_ylabel('GT class confidence', fontsize=12, fontweight='bold')
+    
+    # Single legend
+    handles, labels = axes[0].get_legend_handles_labels()
+    if handles:
+        axes[0].legend(handles, labels, loc='upper left', fontsize=10)
+    
+    fig.suptitle(title, fontsize=14, fontweight='bold')
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(output_path, dpi=150, bbox_inches='tight')
+    plt.close()
+    print(f"  ✓ Confidence curves: {output_path}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Aggregate and plot faithfulness summaries for Experiment 1")
     parser.add_argument(
@@ -470,6 +571,30 @@ Files:
         plot_summary_bar(summary_json, summary_dir / "figures")
     else:
         print(f"[WARN] Missing summary.json at {summary_json}; skipping summary plot")
+
+    # Generate confidence curves (Figure 8 style)
+    print("\n" + "="*60)
+    print("Generating GT confidence curves (Figure 8 style)")
+    print("="*60)
+    dataset_conf_avg, overall_conf_avg, step_fracs = aggregate_confidence_curves(root)
+    
+    # Per-dataset confidence curves
+    for dataset_name, curves_dict in dataset_conf_avg.items():
+        plot_confidence_curves(
+            curves_dict,
+            step_fracs,
+            root / dataset_name / "figures" / "avg_confidence_curves.png",
+            f"GT Confidence vs Deletion Steps - {dataset_name.upper()} (Avg across models)"
+        )
+    
+    # Overall confidence curves
+    if overall_conf_avg:
+        plot_confidence_curves(
+            overall_conf_avg,
+            step_fracs,
+            summary_dir / "figures" / "overall_confidence_curves.png",
+            "GT Confidence vs Deletion Steps - Overall (Avg across all datasets & models)"
+        )
 
     print("\n✓ Aggregation and comprehensive plotting complete")
 
