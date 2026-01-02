@@ -1,0 +1,102 @@
+{
+  "GradCAM": {
+    "50": {
+      "mean_auc": -82740635164.35025,
+      "std_auc": 165481270313.9981,
+      "num_images": 5,
+      "mean_baseline_conf": 0.20063886212283552
+    },
+    "25": {
+      "mean_auc": -204396.66996728157,
+      "std_auc": 266681.86304305884,
+      "num_images": 5,
+      "mean_baseline_conf": 0.20063886212283552
+    },
+    "5": {
+      "mean_auc": -595.1666440928693,
+      "std_auc": 1031.7102506746369,
+      "num_images": 5,
+      "mean_baseline_conf": 0.20063886212283552
+    }
+  },
+  "IntegratedGradients": {
+    "50": {
+      "mean_auc": -421377.4555640466,
+      "std_auc": 516513.8952023768,
+      "num_images": 5,
+      "mean_baseline_conf": 0.20063886212283552
+    },
+    "25": {
+      "mean_auc": -43.23733527260529,
+      "std_auc": 63.45972213619783,
+      "num_images": 5,
+      "mean_baseline_conf": 0.20063886212283552
+    },
+    "5": {
+      "mean_auc": -33.960123639432666,
+      "std_auc": 68.481175900264,
+      "num_images": 5,
+      "mean_baseline_conf": 0.20063886212283552
+    }
+  },
+  "LRP": {
+    "50": {
+      "mean_auc": -137238.52399945838,
+      "std_auc": 274217.2381153118,
+      "num_images": 5,
+      "mean_baseline_conf": 0.20063886212283552
+    },
+    "25": {
+      "mean_auc": -2121.9355515674915,
+      "std_auc": 3073.095712561556,
+      "num_images": 5,
+      "mean_baseline_conf": 0.20063886212283552
+    },
+    "5": {
+      "mean_auc": -0.5771259031116724,
+      "std_auc": 1.5793522402407587,
+      "num_images": 5,
+      "mean_baseline_conf": 0.20063886212283552
+    }
+  },
+  "Occlusion": {
+    "50": {
+      "mean_auc": -1445628.8536120974,
+      "std_auc": 2881709.963063955,
+      "num_images": 5,
+      "mean_baseline_conf": 0.20063886212283552
+    },
+    "25": {
+      "mean_auc": -349654.4780722111,
+      "std_auc": 688570.4354602736,
+      "num_images": 5,
+      "mean_baseline_conf": 0.20063886212283552
+    },
+    "5": {
+      "mean_auc": -27605.13434149969,
+      "std_auc": 53236.36149164434,
+      "num_images": 5,
+      "mean_baseline_conf": 0.20063886212283552
+    }
+  },
+  "RISE": {
+    "50": {
+      "mean_auc": -1207409470.9868152,
+      "std_auc": 2414809447.3664985,
+      "num_images": 5,
+      "mean_baseline_conf": 0.20063886212283552
+    },
+    "25": {
+      "mean_auc": -28162182.102217436,
+      "std_auc": 56317140.30719883,
+      "num_images": 5,
+      "mean_baseline_conf": 0.20063886212283552
+    },
+    "5": {
+      "mean_auc": -18.099472444375444,
+      "std_auc": 36.069508140475506,
+      "num_images": 5,
+      "mean_baseline_conf": 0.20063886212283552
+    }
+  }
+}

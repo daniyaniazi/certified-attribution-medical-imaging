@@ -1,0 +1,40 @@
+000 (128043.000.000) 2026-01-02 19:30:29 Job submitted from host: <10.143.248.60:9618?addrs=10.143.248.60-9618&alias=conduit.hpc.uni-saarland.de&noUDP&sock=schedd_1339_0567>
+...
+040 (128043.000.000) 2026-01-02 19:30:30 Started transferring input files
+	Transferring to host: <10.143.248.15:9618?PrivAddr=%3c10.143.250.15:9618%3fsock%3dteaching2_3416_a184_93%3e&PrivNet=cs-hpc-storage&addrs=10.143.248.15-9618&alias=thera.hpc.uni-saarland.de&noUDP&sock=teaching2_3416_a184_93>
+...
+040 (128043.000.000) 2026-01-02 19:36:25 Finished transferring input files
+...
+001 (128043.000.000) 2026-01-02 19:36:26 Job executing on host: <10.143.248.15:9618?PrivAddr=%3c10.143.250.15:9618%3fsock%3dstartd_3381_a9cb%3e&PrivNet=cs-hpc-storage&addrs=10.143.248.15-9618&alias=thera.hpc.uni-saarland.de&noUDP&sock=startd_3381_a9cb>
+	SlotName: teaching2@thera.hpc.uni-saarland.de
+	AvailableGPUs = { GPUs_GPU_d2f81563 }
+	CondorScratchDir = "/raid/condor/lib/condor/execute/dir_271500"
+	Cpus = 7
+	Disk = 448936650
+	GPUs = 1
+	GPUs_GPU_d2f81563 = [ Id = "GPU-d2f81563"; Capability = 6.0; DeviceName = "Tesla P100-SXM2-16GB"; DeviceUuid = "d2f81563-d25a-24f0-a455-af7e3a3f119d"; ECCEnabled = true; NvidiaDriver = "550.163.01"; DriverVersion = 12.4; DevicePciBusId = "0000:05:00.0"; GlobalMemoryMb = 16269; MaxSupportedVersion = 12040 ]
+	Memory = 96737
+...
+040 (128043.000.000) 2026-01-02 19:36:28 Started transferring output files
+...
+040 (128043.000.000) 2026-01-02 19:36:28 Finished transferring output files
+...
+005 (128043.000.000) 2026-01-02 19:36:29 Job terminated.
+	(1) Normal termination (return value 127)
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Local Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Local Usage
+	861  -  Run Bytes Sent By Job
+	9074736361  -  Run Bytes Received By Job
+	861  -  Total Bytes Sent By Job
+	9074736361  -  Total Bytes Received By Job
+	Partitionable Resources :      Usage  Request Allocated Assigned
+	   Cpus                 :       0.28        4         7 
+	   Disk (KB)            : 8862066    10000000 448936650 
+	   GPUs                 :       0           1         1 "GPU-d2f81563"
+	   GpusMemory (MB)      :     117                       
+	   Memory (MB)          :                8192     96737 
+	   TimeExecute (s)      :       2                       
+	   TimeSlotBusy (s)     :     358                       
+...
