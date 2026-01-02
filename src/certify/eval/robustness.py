@@ -133,7 +133,7 @@ class RobustnessEvaluator(BaseEvaluator):
         plt.close()
         print(f"  ✓ Saved robustness figure (K={k_percent}%) to {out_path}")
     
-    def plot_stacked_certification(self, results: Dict, output_dir: Path, model_name: str) -> None:
+    def plot_stacked_certification(self, results: Dict, output_dir: Path, model_name: str, dataset_name: str = None) -> None:
         """
         Plot stacked bar chart with K values grouped, methods as colored bars, 
         showing certified '1', '0', and abstain proportions within each bar.
@@ -153,13 +153,13 @@ class RobustnessEvaluator(BaseEvaluator):
         methods = sorted(model_results.keys())
         k_values = sorted(model_results[methods[0]].keys(), reverse=True) if model_results else []
         
-        # Bright color palette for attribution methods
+        # Colorblind-friendly palette
         method_colors = {
-            'GradCAM': '#FF3333',          # Bright red
-            'Occlusion': '#FF9900',        # Bright orange
-            'IntegratedGradients': '#00CCFF',  # Bright cyan
-            'RISE': '#00FF00',             # Bright green
-            'LRP': '#FF00FF',              # Bright magenta
+            'IntegratedGradients': '#0072B2',  # blue
+            'GradCAM': '#D55E00',              # vermilion
+            'RISE': '#009E73',                # bluish green
+            'Occlusion': '#E69F00',           # orange
+            'LRP': '#CC79A7',                 # reddish purple
         }
         
         # Use method-specific colors or fallback
@@ -209,9 +209,10 @@ class RobustnessEvaluator(BaseEvaluator):
         ])
         ax.legend(handles=legend_elements, loc='upper right', frameon=True, fontsize=10, ncol=2)
         
+        ds_label = dataset_name or self.dataset_name
         ax.set_xlabel('K (%)', fontsize=12)
         ax.set_ylabel('% of pixels', fontsize=12)
-        ax.set_title(f'Certification Robustness Breakdown - {model_name}', fontsize=14, fontweight='bold')
+        ax.set_title(f'Certification Robustness Breakdown - {ds_label.upper()} - {model_name}', fontsize=14, fontweight='bold')
         ax.set_xticks(x)
         ax.set_xticklabels([f'{k}' for k in k_values])
         ax.set_ylim([0, 105])

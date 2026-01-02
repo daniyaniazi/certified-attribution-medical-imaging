@@ -29,6 +29,15 @@ import numpy as np
 
 from src.certify.eval.robustness import RobustnessEvaluator
 
+# Colorblind-friendly palette (Okabe-Ito inspired) used consistently across plots
+METHOD_COLORS = {
+    "IntegratedGradients": "#0072B2",  # blue
+    "GradCAM": "#D55E00",              # vermilion
+    "RISE": "#009E73",                # bluish green
+    "Occlusion": "#E69F00",           # orange
+    "LRP": "#CC79A7",                 # reddish purple
+}
+
 
 def load_json(path: Path):
     with open(path, "r") as f:
@@ -104,14 +113,8 @@ def plot_stacked_avg(aggregated_results, output_path: Path, title_suffix: str):
     k_values = sorted(next(iter(aggregated_results.values())).keys(), reverse=True) if methods else []
     
     # Bright color palette
-    method_colors = {
-        'GradCAM': '#FF3333',
-        'Occlusion': '#FF9900',
-        'IntegratedGradients': '#00CCFF',
-        'RISE': '#00FF00',
-        'LRP': '#FF00FF',
-    }
-    colors = [method_colors.get(m, f'C{i}') for i, m in enumerate(methods)]
+    # Colorblind-friendly palette
+    colors = [METHOD_COLORS.get(m, f'C{i}') for i, m in enumerate(methods)]
     
     fig, ax = plt.subplots(figsize=(14, 7))
     x = np.arange(len(k_values))
@@ -191,7 +194,12 @@ def plot_dataset_stacked(dataset_name: str, dataset_dir: Path, checkpoint_root: 
 
     fig_dir = dataset_dir / "figures"
     fig_dir.mkdir(parents=True, exist_ok=True)
-    evaluator.plot_stacked_certification(dataset_results, fig_dir, f"{dataset_name}_all_models")
+    evaluator.plot_stacked_certification(
+        dataset_results,
+        fig_dir,
+        f"{dataset_name}_all_models",
+        dataset_name=dataset_name,
+    )
     print(f"  ✓ Stacked plot (per-model) written to {fig_dir}")
     
     # Also create averaged stacked plot across models
@@ -241,14 +249,7 @@ def plot_global_method_stacked(method_aggs: dict, out_dir: Path):
     vals = [method_aggs[m]["mean_pct_certified"] for m in methods]
     
     # Use bright colors for attribution methods
-    method_colors = {
-        'GradCAM': '#FF3333',
-        'Occlusion': '#FF9900',
-        'IntegratedGradients': '#00CCFF',
-        'RISE': '#00FF00',
-        'LRP': '#FF00FF',
-    }
-    colors = [method_colors.get(m, f'C{i}') for i, m in enumerate(methods)]
+    colors = [METHOD_COLORS.get(m, f'C{i}') for i, m in enumerate(methods)]
     
     plt.figure(figsize=(10, 5))
     bars = plt.bar(methods, vals, color=colors, edgecolor="black", linewidth=1.2)
@@ -264,6 +265,74 @@ def plot_global_method_stacked(method_aggs: dict, out_dir: Path):
     plt.close()
     print(f"  ✓ Global method bar written to {out_path}")
 
+
+def aggregate_by_dataset_and_method(root: Path):
+    """Aggregate pct_certified per method for each dataset across all models/K."""
+    dataset_method = defaultdict(lambda: defaultdict(list))
+    for dpath in root.iterdir():
+        if not dpath.is_dir() or dpath.name == "summary":
+            continue
+        dataset_name = dpath.name
+        for mdir in dpath.iterdir():
+            if not mdir.is_dir():
+                continue
+            rr_path = mdir / "robustness_results.json"
+            if not rr_path.exists():
+                continue
+            rr = load_json(rr_path)
+            for method_name, kdict in rr.items():
+                for _k, metrics in kdict.items():
+                    n = metrics.get("num_images", 0)
+                    v = metrics.get("pct_certified", 0.0)
+                    dataset_method[dataset_name][method_name].append((v, n))
+    dataset_method_aggs = {}
+    for dataset_name, method_vals in dataset_method.items():
+        dataset_method_aggs[dataset_name] = {}
+        for method, vals in method_vals.items():
+            mean_cert, total_n = weighted_mean(vals)
+            dataset_method_aggs[dataset_name][method] = {
+                "mean_pct_certified": mean_cert,
+                "total_images": total_n,
+            }
+    return dataset_method_aggs
+
+
+def plot_method_by_dataset(dataset_method_aggs: dict, out_dir: Path):
+    """Single figure: grouped bars per dataset showing mean %certified per attribution method."""
+    if not dataset_method_aggs:
+        print("[WARN] No dataset/method aggregates found; skipping method-by-dataset plot")
+        return
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    datasets = sorted(dataset_method_aggs.keys())
+    # Collect all methods present across datasets
+    methods = sorted({m for d in datasets for m in dataset_method_aggs[d].keys()})
+    x = np.arange(len(datasets))
+    width = 0.12
+    fig, ax = plt.subplots(figsize=(14, 6))
+
+    for idx, method in enumerate(methods):
+        vals = []
+        for d in datasets:
+            vals.append(dataset_method_aggs[d].get(method, {}).get("mean_pct_certified", 0.0))
+        offset = (idx - len(methods) / 2 + 0.5) * width
+        ax.bar(x + offset, vals, width, label=method, color=METHOD_COLORS.get(method, f"C{idx}"), edgecolor="black", linewidth=0.8)
+        for xi, val in zip(x + offset, vals):
+            ax.text(xi, val + 0.5, f"{val:.1f}", ha="center", va="bottom", fontsize=8)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels([d.upper() for d in datasets], fontsize=11)
+    ax.set_ylabel("Mean % certified", fontsize=12, fontweight="bold")
+    ax.set_ylim(0, 100)
+    ax.set_title("Attribution robustness by dataset (mean % certified)", fontsize=13, fontweight="bold")
+    ax.legend(title="Attribution method", ncol=3, fontsize=9)
+    ax.grid(axis="y", alpha=0.25, linestyle="--")
+
+    plt.tight_layout()
+    out_path = out_dir / "method_by_dataset.png"
+    plt.savefig(out_path, dpi=150, bbox_inches="tight")
+    plt.close()
+    print(f"  ✓ Method-by-dataset comparison written to {out_path}")
 
 def plot_summary_bar(summary_json: Path, out_dir: Path):
     data = load_json(summary_json)
@@ -397,10 +466,13 @@ Files:
             summary_dir / "figures" / "overall_avg_stacked.png",
             "(Overall: Avg across all datasets & models)"
         )
-    
-    # Global method robustness
+
+    # Global method robustness (single bar per method) and dataset-method grid view
     method_aggs = aggregate_by_method(root)
     plot_global_method_stacked(method_aggs, summary_dir / "figures")
+
+    dataset_method_aggs = aggregate_by_dataset_and_method(root)
+    plot_method_by_dataset(dataset_method_aggs, summary_dir / "figures")
 
     summary_json = summary_dir / "summary.json"
     if summary_json.exists():

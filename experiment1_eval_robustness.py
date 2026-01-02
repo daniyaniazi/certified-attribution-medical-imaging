@@ -136,7 +136,12 @@ def main():
             rob_results = rob_results_raw.get(model_name, {})
 
             evaluator.save_results_json(rob_results, model_out_dir / "robustness_results.json")
-            evaluator.plot_stacked_certification({model_name: rob_results}, model_out_dir / "figures", model_name)
+            evaluator.plot_stacked_certification(
+                {model_name: rob_results},
+                model_out_dir / "figures",
+                model_name,
+                dataset_name=dataset,
+            )
 
             dataset_all_results[model_name] = rob_results
             print(f"Saved: {model_out_dir}")
@@ -153,7 +158,12 @@ def main():
                 checkpoint_dir=checkpoint_base,
                 device=device,
             )
-            evaluator.plot_stacked_certification(dataset_all_results, combined_fig_dir, f"{dataset}_all_models")
+            evaluator.plot_stacked_certification(
+                dataset_all_results,
+                combined_fig_dir,
+                f"{dataset}_all_models",
+                dataset_name=dataset,
+            )
             print(f"Combined figures: {combined_fig_dir}")
 
     print("\n✓ Experiment 1 robustness evaluation complete")
