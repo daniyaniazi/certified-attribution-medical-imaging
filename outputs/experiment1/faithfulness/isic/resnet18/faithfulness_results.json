@@ -1,0 +1,102 @@
+{
+  "GradCAM": {
+    "50": {
+      "mean_auc": -0.10570633233072742,
+      "std_auc": 0.3445613978088309,
+      "num_images": 5,
+      "mean_baseline_conf": 0.12046795620117337
+    },
+    "25": {
+      "mean_auc": 0.13646737469142836,
+      "std_auc": 0.15680269038045427,
+      "num_images": 5,
+      "mean_baseline_conf": 0.12046795620117337
+    },
+    "5": {
+      "mean_auc": 0.1323070198936097,
+      "std_auc": 0.1682276623407245,
+      "num_images": 5,
+      "mean_baseline_conf": 0.12046795620117337
+    }
+  },
+  "IntegratedGradients": {
+    "50": {
+      "mean_auc": -0.6282654723920735,
+      "std_auc": 1.1371422590717177,
+      "num_images": 5,
+      "mean_baseline_conf": 0.12046795620117337
+    },
+    "25": {
+      "mean_auc": 0.04142680392948652,
+      "std_auc": 0.080116075125526,
+      "num_images": 5,
+      "mean_baseline_conf": 0.12046795620117337
+    },
+    "5": {
+      "mean_auc": 0.0,
+      "std_auc": 0.0,
+      "num_images": 5,
+      "mean_baseline_conf": 0.12046795620117337
+    }
+  },
+  "LRP": {
+    "50": {
+      "mean_auc": -0.5260871725137508,
+      "std_auc": 1.376382345657069,
+      "num_images": 5,
+      "mean_baseline_conf": 0.12046795620117337
+    },
+    "25": {
+      "mean_auc": -0.2999860359740147,
+      "std_auc": 0.9001426057213073,
+      "num_images": 5,
+      "mean_baseline_conf": 0.12046795620117337
+    },
+    "5": {
+      "mean_auc": -0.09073334882806623,
+      "std_auc": 0.15735813334756413,
+      "num_images": 5,
+      "mean_baseline_conf": 0.12046795620117337
+    }
+  },
+  "Occlusion": {
+    "50": {
+      "mean_auc": -1.2062119433675116,
+      "std_auc": 1.9380547352182702,
+      "num_images": 5,
+      "mean_baseline_conf": 0.12046795620117337
+    },
+    "25": {
+      "mean_auc": -0.28685548992507387,
+      "std_auc": 0.6085682736898242,
+      "num_images": 5,
+      "mean_baseline_conf": 0.12046795620117337
+    },
+    "5": {
+      "mean_auc": -0.1318851304922314,
+      "std_auc": 0.40942966857509255,
+      "num_images": 5,
+      "mean_baseline_conf": 0.12046795620117337
+    }
+  },
+  "RISE": {
+    "50": {
+      "mean_auc": -0.021270541328785607,
+      "std_auc": 0.042541082657571214,
+      "num_images": 5,
+      "mean_baseline_conf": 0.12046795620117337
+    },
+    "25": {
+      "mean_auc": 0.0,
+      "std_auc": 0.0,
+      "num_images": 5,
+      "mean_baseline_conf": 0.12046795620117337
+    },
+    "5": {
+      "mean_auc": 0.0,
+      "std_auc": 0.0,
+      "num_images": 5,
+      "mean_baseline_conf": 0.12046795620117337
+    }
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "GradCAM": {
+    "50": {
+      "mean_auc": 0.0,
+      "std_auc": 0.0,
+      "num_images": 5,
+      "mean_baseline_conf": 1.0
+    },
+    "25": {
+      "mean_auc": 0.0,
+      "std_auc": 0.0,
+      "num_images": 5,
+      "mean_baseline_conf": 1.0
+    },
+    "5": {
+      "mean_auc": 0.0,
+      "std_auc": 0.0,
+      "num_images": 5,
+      "mean_baseline_conf": 1.0
+    }
+  },
+  "IntegratedGradients": {
+    "50": {
+      "mean_auc": 0.0,
+      "std_auc": 0.0,
+      "num_images": 5,
+      "mean_baseline_conf": 1.0
+    },
+    "25": {
+      "mean_auc": 0.0,
+      "std_auc": 0.0,
+      "num_images": 5,
+      "mean_baseline_conf": 1.0
+    },
+    "5": {
+      "mean_auc": 0.0,
+      "std_auc": 0.0,
+      "num_images": 5,
+      "mean_baseline_conf": 1.0
+    }
+  },
+  "LRP": {
+    "50": {
+      "mean_auc": 0.0,
+      "std_auc": 0.0,
+      "num_images": 5,
+      "mean_baseline_conf": 1.0
+    },
+    "25": {
+      "mean_auc": 0.0,
+      "std_auc": 0.0,
+      "num_images": 5,
+      "mean_baseline_conf": 1.0
+    },
+    "5": {
+      "mean_auc": 0.0,
+      "std_auc": 0.0,
+      "num_images": 5,
+      "mean_baseline_conf": 1.0
+    }
+  },
+  "Occlusion": {
+    "50": {
+      "mean_auc": 0.0,
+      "std_auc": 0.0,
+      "num_images": 5,
+      "mean_baseline_conf": 1.0
+    },
+    "25": {
+      "mean_auc": 0.0,
+      "std_auc": 0.0,
+      "num_images": 5,
+      "mean_baseline_conf": 1.0
+    },
+    "5": {
+      "mean_auc": 0.0,
+      "std_auc": 0.0,
+      "num_images": 5,
+      "mean_baseline_conf": 1.0
+    }
+  },
+  "RISE": {
+    "50": {
+      "mean_auc": 0.0,
+      "std_auc": 0.0,
+      "num_images": 5,
+      "mean_baseline_conf": 1.0
+    },
+    "25": {
+      "mean_auc": 0.0,
+      "std_auc": 0.0,
+      "num_images": 5,
+      "mean_baseline_conf": 1.0
+    },
+    "5": {
+      "mean_auc": 0.0,
+      "std_auc": 0.0,
+      "num_images": 5,
+      "mean_baseline_conf": 1.0
+    }
+  }
+}
