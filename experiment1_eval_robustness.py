@@ -80,18 +80,21 @@ def main():
 
     cert_base = repo_root / args.cert_base
     output_base = repo_root / args.output_base
-    checkpoint_base = repo_root / args.checkpoint_base
+    checkpoint_root = repo_root / args.checkpoint_base
 
     print(f"Repo root: {repo_root}")
     print(f"Cert base: {cert_base}")
     print(f"Output base: {output_base}")
-    print(f"Checkpoint base: {checkpoint_base}")
+    print(f"Checkpoint base: {checkpoint_root}")
     print(f"Device: {device}")
 
     for dataset in args.datasets:
         dataset_cert_dir = cert_base / dataset
         dataset_out_dir = output_base / dataset
         dataset_out_dir.mkdir(parents=True, exist_ok=True)
+
+        # Use dataset-specific checkpoint directory (outputs/checkpoints/<dataset>)
+        checkpoint_base = checkpoint_root / dataset
 
         pkl_paths = list(dataset_cert_dir.rglob("*.pkl"))
         pkl_path = latest_pkl(pkl_paths)
