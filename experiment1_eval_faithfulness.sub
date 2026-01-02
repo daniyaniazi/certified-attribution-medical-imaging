@@ -5,7 +5,7 @@ universe                = docker
 docker_image            = nvidia/cuda:12.1.0-runtime-ubuntu22.04
 initialdir              = /home/exml_team007/certified-attribution-medical-imaging
 executable              = execute_experiment1_eval_faithfulness.sh
-transfer_input_files    = execute_experiment1_eval_faithfulness.sh, experiment1_eval_faithfulness.py, src/, outputs/certifications/, outputs/checkpoints/
+transfer_input_files    = execute_experiment1_eval_faithfulness.sh, experiment1_eval_faithfulness.py, src/
 
 # Use default script arguments; override here if desired
 arguments               = 
@@ -22,7 +22,7 @@ when_to_transfer_output = ON_EXIT
 request_GPUs  = 1
 request_CPUs  = 4
 request_memory = 8G
-request_disk   = 5G
+request_disk   = 20G
 requirements = UidDomain == "cs.uni-saarland.de"
 +WantGPUHomeMounted = true
 queue 1

@@ -17,7 +17,7 @@ from collections import defaultdict
 import torch
 
 from src.certify.eval.faithfulness import FaithfulnessEvaluator
-from src.datasets.base import get_dataset
+from src.datasets import get_dataset
 
 
 def main():
