@@ -349,7 +349,7 @@ def main():
     parser = argparse.ArgumentParser(description="Aggregate and plot faithfulness summaries for Experiment 1")
     parser.add_argument(
         "--faithfulness_root",
-        default="outputs/experiment1/faithfulness",
+        default="outputs/eval/experiment1/faithfulness",
         help="Root directory containing per-dataset/model faithfulness results",
     )
     parser.add_argument(
