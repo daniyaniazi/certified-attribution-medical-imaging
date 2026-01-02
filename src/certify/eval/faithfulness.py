@@ -160,7 +160,7 @@ class FaithfulnessEvaluator(BaseEvaluator):
             all_certified_pixels.extend(list(zip(ys, xs)))
         
         if not all_certified_pixels:
-            return 0.0, baseline_conf
+            return 0.0, baseline_conf, None
         
         # Iteratively delete pixels
         deleted_img = image.copy()
