@@ -68,14 +68,14 @@ class BaseEvaluator(ABC):
         if not isinstance(state, dict):
             return None
         candidates = [
-            'classifier.weight', 'fc.weight', 'head.weight',
+            'classifier.weight', 'classifier.1.weight', 'fc.weight', 'head.weight',
         ]
         for key in candidates:
             if key in state and hasattr(state[key], 'shape') and len(state[key].shape) >= 1:
                 return int(state[key].shape[0])
-        # Fallback: search any top-level weight ending with '.weight'
+        # Fallback: search any top-level classifier-like weight
         for k, v in state.items():
-            if k.endswith('.weight') and hasattr(v, 'shape') and len(v.shape) >= 1:
+            if ('classifier' in k or k.endswith('.weight')) and hasattr(v, 'shape') and len(v.shape) >= 1:
                 return int(v.shape[0])
         return None
 
