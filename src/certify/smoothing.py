@@ -168,6 +168,12 @@ class RandomizedSmoothingAttributor:
                 with torch.enable_grad():
                     heat = self.attribution_func(noisy_images[j:j+1], target_class)
                 heat_np = to_numpy_2d(heat)
+
+                # Some attribution methods (e.g., GradCAM) return low-res maps; resize to input HxW
+                if heat_np.shape != (h, w):
+                    heat_t = torch.from_numpy(heat_np).float().unsqueeze(0).unsqueeze(0)
+                    heat_t = F.interpolate(heat_t, size=(h, w), mode="bilinear", align_corners=False)
+                    heat_np = heat_t.squeeze().cpu().numpy()
                 
                 # Sparsify: h_K(x_t) = top-K% pixels (Eq. 4)
                 mask = self._sparsify_topk(heat_np, k_percent)
