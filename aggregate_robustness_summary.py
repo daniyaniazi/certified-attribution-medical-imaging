@@ -24,6 +24,8 @@ import argparse
 from pathlib import Path
 from collections import defaultdict
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import numpy as np
 
 from src.certify.eval.robustness import RobustnessEvaluator
 
@@ -66,6 +68,107 @@ def aggregate_dataset(model_aggs):
     }
 
 
+def aggregate_across_models(model_results_dict):
+    """Aggregate robustness results across models, preserving method/K structure.
+    
+    Args:
+        model_results_dict: {model_name: {method: {k: metrics}}}
+    
+    Returns:
+        {method: {k: {mean metrics}}}
+    """
+    aggregated = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+    
+    for model_name, methods_dict in model_results_dict.items():
+        for method, k_dict in methods_dict.items():
+            for k, metrics in k_dict.items():
+                for metric_name, value in metrics.items():
+                    if isinstance(value, (int, float)):
+                        aggregated[method][k][metric_name].append(value)
+    
+    # Compute means
+    result = {}
+    for method, k_dict in aggregated.items():
+        result[method] = {}
+        for k, metric_dict in k_dict.items():
+            result[method][k] = {}
+            for metric_name, values in metric_dict.items():
+                result[method][k][metric_name] = float(np.mean(values)) if values else 0.0
+    
+    return result
+
+
+def plot_stacked_avg(aggregated_results, output_path: Path, title_suffix: str):
+    """Plot stacked bar chart for aggregated robustness results."""
+    methods = sorted(aggregated_results.keys())
+    k_values = sorted(next(iter(aggregated_results.values())).keys(), reverse=True) if methods else []
+    
+    # Bright color palette
+    method_colors = {
+        'GradCAM': '#FF3333',
+        'Occlusion': '#FF9900',
+        'IntegratedGradients': '#00CCFF',
+        'RISE': '#00FF00',
+        'LRP': '#FF00FF',
+    }
+    colors = [method_colors.get(m, f'C{i}') for i, m in enumerate(methods)]
+    
+    fig, ax = plt.subplots(figsize=(14, 7))
+    x = np.arange(len(k_values))
+    width = 0.12
+    
+    for method_idx, method in enumerate(methods):
+        certified_1_list = []
+        certified_0_list = []
+        abstain_list = []
+        
+        for k_percent in k_values:
+            if k_percent in aggregated_results[method]:
+                metrics = aggregated_results[method][k_percent]
+                certified_1_list.append(metrics.get('pct_certified_1', 0))
+                certified_0_list.append(metrics.get('pct_certified_0', 0))
+                abstain_list.append(metrics.get('pct_abstained', 0))
+            else:
+                certified_1_list.append(0)
+                certified_0_list.append(0)
+                abstain_list.append(100)
+        
+        offset = (method_idx - len(methods) / 2 + 0.5) * width
+        
+        ax.bar(x + offset, certified_1_list, width, label=method if method_idx == 0 else '',
+              color=colors[method_idx], alpha=1.0, edgecolor='black', linewidth=0.5)
+        ax.bar(x + offset, certified_0_list, width, bottom=certified_1_list,
+              color=colors[method_idx], alpha=0.65, edgecolor='black', linewidth=0.5)
+        ax.bar(x + offset, abstain_list, width,
+              bottom=np.array(certified_1_list) + np.array(certified_0_list),
+              color='white', alpha=1.0, edgecolor='#CCCCCC', linewidth=0.5)
+    
+    # Legend
+    legend_elements = [
+        mpatches.Patch(facecolor=colors[i], edgecolor='black', label=m)
+        for i, m in enumerate(methods)
+    ]
+    legend_elements.extend([
+        mpatches.Patch(facecolor='darkgray', label='Certified 1', alpha=1.0),
+        mpatches.Patch(facecolor='gray', label='Certified 0', alpha=0.65),
+        mpatches.Patch(facecolor='white', edgecolor='#CCCCCC', label='Abstain'),
+    ])
+    ax.legend(handles=legend_elements, loc='upper right', fontsize=9, ncol=2)
+    
+    ax.set_xticks(x)
+    ax.set_xticklabels([f'K={k}%' for k in k_values], fontsize=11)
+    ax.set_ylabel('Percentage', fontsize=12, fontweight='bold')
+    ax.set_ylim(0, 100)
+    ax.set_title(f'Robustness Certification {title_suffix}', fontsize=13, fontweight='bold')
+    ax.grid(axis='y', alpha=0.3, linestyle='--')
+    
+    plt.tight_layout()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(output_path, dpi=150, bbox_inches='tight')
+    plt.close()
+    print(f"  ✓ Stacked avg plot: {output_path}")
+
+
 def plot_dataset_stacked(dataset_name: str, dataset_dir: Path, checkpoint_root: Path, device: str = "cpu"):
     dataset_results = {}
     model_dirs = [d for d in dataset_dir.iterdir() if d.is_dir() and (d / "robustness_results.json").exists()]
@@ -89,7 +192,77 @@ def plot_dataset_stacked(dataset_name: str, dataset_dir: Path, checkpoint_root: 
     fig_dir = dataset_dir / "figures"
     fig_dir.mkdir(parents=True, exist_ok=True)
     evaluator.plot_stacked_certification(dataset_results, fig_dir, f"{dataset_name}_all_models")
-    print(f"  ✓ Stacked plot written to {fig_dir}")
+    print(f"  ✓ Stacked plot (per-model) written to {fig_dir}")
+    
+    # Also create averaged stacked plot across models
+    aggregated = aggregate_across_models(dataset_results)
+    plot_stacked_avg(
+        aggregated,
+        fig_dir / "dataset_avg_stacked.png",
+        f"(Dataset: {dataset_name.upper()}, Avg across models)"
+    )
+    
+    return dataset_results
+
+
+def aggregate_by_method(root: Path):
+    """Aggregate pct_certified per attribution method across all datasets/models."""
+    method_vals = defaultdict(list)
+    for dpath in root.iterdir():
+        if not dpath.is_dir() or dpath.name == "summary":
+            continue
+        for mdir in dpath.iterdir():
+            if not mdir.is_dir():
+                continue
+            rr_path = mdir / "robustness_results.json"
+            if not rr_path.exists():
+                continue
+            rr = load_json(rr_path)
+            for method_name, kdict in rr.items():
+                for k, metrics in kdict.items():
+                    n = metrics.get("num_images", 0)
+                    v = metrics.get("pct_certified", 0.0)
+                    method_vals[method_name].append((v, n))
+    
+    method_aggs = {}
+    for method, vals in method_vals.items():
+        mean_cert, total_n = weighted_mean(vals)
+        method_aggs[method] = {
+            "mean_pct_certified": mean_cert,
+            "total_images": total_n,
+        }
+    return method_aggs
+
+
+def plot_global_method_stacked(method_aggs: dict, out_dir: Path):
+    """Plot stacked bar of avg pct_certified per attribution method across all experiments."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    methods = sorted(method_aggs.keys())
+    vals = [method_aggs[m]["mean_pct_certified"] for m in methods]
+    
+    # Use bright colors for attribution methods
+    method_colors = {
+        'GradCAM': '#FF3333',
+        'Occlusion': '#FF9900',
+        'IntegratedGradients': '#00CCFF',
+        'RISE': '#00FF00',
+        'LRP': '#FF00FF',
+    }
+    colors = [method_colors.get(m, f'C{i}') for i, m in enumerate(methods)]
+    
+    plt.figure(figsize=(10, 5))
+    bars = plt.bar(methods, vals, color=colors, edgecolor="black", linewidth=1.2)
+    plt.ylabel("Mean % certified")
+    plt.ylim(0, 100)
+    plt.title("Overall attribution method robustness (all datasets & models)")
+    plt.xticks(rotation=45, ha='right')
+    for bar, val in zip(bars, vals):
+        plt.text(bar.get_x() + bar.get_width()/2, val + 1, f"{val:.1f}", ha="center", va="bottom", fontsize=9)
+    plt.tight_layout()
+    out_path = out_dir / "global_method_robustness.png"
+    plt.savefig(out_path, dpi=150)
+    plt.close()
+    print(f"  ✓ Global method bar written to {out_path}")
 
 
 def plot_summary_bar(summary_json: Path, out_dir: Path):
@@ -207,9 +380,27 @@ Files:
     print(f"✓ Summary written to {summary_dir}")
 
     # Plot per-dataset stacked bars and summary bar
+    overall_model_results = {}
     for dpath in datasets:
         dataset_name = dpath.name
-        plot_dataset_stacked(dataset_name, dpath, checkpoint_root, device=args.device)
+        dataset_results = plot_dataset_stacked(dataset_name, dpath, checkpoint_root, device=args.device)
+        if dataset_results:
+            for model_name, rr in dataset_results.items():
+                overall_model_results[f"{dataset_name}_{model_name}"] = rr
+
+    # Overall averaged stacked plot across all datasets/models
+    if overall_model_results:
+        print("\nGenerating overall average across all datasets/models")
+        overall_aggregated = aggregate_across_models(overall_model_results)
+        plot_stacked_avg(
+            overall_aggregated,
+            summary_dir / "figures" / "overall_avg_stacked.png",
+            "(Overall: Avg across all datasets & models)"
+        )
+    
+    # Global method robustness
+    method_aggs = aggregate_by_method(root)
+    plot_global_method_stacked(method_aggs, summary_dir / "figures")
 
     summary_json = summary_dir / "summary.json"
     if summary_json.exists():
@@ -217,7 +408,7 @@ Files:
     else:
         print(f"[WARN] Missing summary.json at {summary_json}; skipping summary plot")
 
-    print("\n✓ Aggregation and plotting complete")
+    print("\n✓ Aggregation and comprehensive plotting complete")
 
 
 if __name__ == "__main__":
