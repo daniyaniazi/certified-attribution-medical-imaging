@@ -40,17 +40,20 @@ class GridDataset(Dataset):
         image = self.images[idx]
         cell_classes = self.cell_classes[idx]
         target_class = int(self.target_classes[idx])
+        meta = {
+            "scale": self.scale,
+            "image_size": self.image_size,
+            "target_cell": self.target_cell,
+        }
+        if self.class_names is not None:
+            meta["class_names"] = self.class_names
+
         return {
             "image": image,
             "cell_classes": cell_classes,
             "target_class": target_class,
             "target_head": int(self.target_cell),
-            "meta": {
-                "scale": self.scale,
-                "image_size": self.image_size,
-                "target_cell": self.target_cell,
-                "class_names": self.class_names,
-            },
+            "meta": meta,
         }
 
     def build_target_mask(self) -> Dict[int, torch.Tensor]:
