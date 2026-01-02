@@ -1,0 +1,19 @@
+{
+  "GradCAM": {
+    "50": {
+      "mean_gridpg": 0.3329583459145572,
+      "std_gridpg": 0.16105345114414907,
+      "num_images": 2
+    },
+    "25": {
+      "mean_gridpg": 0.4377927735446109,
+      "std_gridpg": 0.42699079650379457,
+      "num_images": 2
+    },
+    "5": {
+      "mean_gridpg": 0.5,
+      "std_gridpg": 0.5,
+      "num_images": 2
+    }
+  }
+}

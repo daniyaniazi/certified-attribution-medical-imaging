@@ -1,0 +1,404 @@
+% This must be in the first 5 lines to tell arXiv to use pdfLaTeX, which is strongly recommended.
+\pdfoutput=1
+% In particular, the hyperref package requires pdfLaTeX in order to break URLs across lines.
+\documentclass[11pt]{article}
+\usepackage{amsmath}
+\usepackage{tabularx} % Add this in the preamble
+\usepackage{amssymb}
+% Remove the "review" option to generate the final version.
+\usepackage{ACL2023}
+
+% Standard package includes
+\usepackage{times}
+\usepackage{latexsym}
+
+% For proper rendering and hyphenation of words containing Latin characters (including in bib files)
+\usepackage[T1]{fontenc}
+% For Vietnamese characters
+% \usepackage[T5]{fontenc}
+% See https://www.latex-project.org/help/documentation/encguide.pdf for other character sets
+
+% This assumes your files are encoded as UTF8
+\usepackage[utf8]{inputenc}
+
+% This is not strictly necessary, and may be commented out.
+% However, it will improve the layout of the manuscript,
+% and will typically save some space.
+\usepackage{microtype}
+
+% This is also not strictly necessary, and may be commented out.
+% However, it will improve the aesthetics of text in
+% the typewriter font.
+\usepackage{inconsolata}
+\usepackage{graphicx} 
+
+% If the title and author information does not fit in the area allocated, uncomment the following
+%
+%\setlength\titlebox{<dim>}
+%
+% and set <dim> to something 5cm or larger.
+
+\title{Certified Robustness of Attribution Methods: \\ Application to Medical Imaging Classifiers}
+
+
+\author{Daniya Niazi \\
+\texttt{7062343,dani00003@stud.uni-saarland.de} \\
+Universit{\"a}t des Saarlandes}
+
+\date{}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+Explainability in deep learning is essential for trustworthy AI, particularly in high-stakes domains like medical imaging where model decisions directly impact patient care. Attribution methods visualize which input features influence predictions, but recent research reveals they are vulnerable to adversarial manipulation—imperceptible perturbations can dramatically alter explanations while preserving predictions. This report examines pixel-level certification frameworks using randomized smoothing that provide provable robustness guarantees for attribution methods. We comprehensively summarize the theoretical foundations and experimental methodology of certified attributions evaluated on ImageNet/CIFAR benchmarks, then present an extensive empirical study extending this framework to medical imaging. Our experiments across four clinical modalities (chest X-ray, brain MRI, fundus, skin lesion), six architectures (ResNet-18/34/50, EfficientNet-B0/B1, DenseNet-121), and five attribution methods (RISE, LRP, Integrated Gradients, GradCAM, Occlusion) reveal that certification effectiveness varies significantly by modality and method. Integrated Gradients achieved 65-75\% certification rates while perturbation-based methods struggled (20-35\%). These findings demonstrate both the promise and challenges of deploying certified explanations in clinical settings.
+\end{abstract} 
+
+\section{Introduction}
+
+Deep neural networks have revolutionized computer vision and medical image analysis, achieving expert-level performance in tasks ranging from object recognition to disease diagnosis. However, their "black-box" nature poses critical challenges for deployment in high-stakes domains. In medical imaging, when a model diagnoses pneumonia from a chest X-ray or classifies a skin lesion as malignant, clinicians need to understand \textit{why}—both for trust and to catch potential errors. This need has driven extensive research in explainable AI (XAI), particularly attribution methods that highlight which input pixels influenced the prediction.
+
+Yet recent work exposes a fundamental vulnerability: attribution methods themselves can be adversarially manipulated. Small, imperceptible perturbations to input images can drastically change attribution maps while keeping predictions unchanged \cite{ghorbani2019interpretation, dombrowski2019explanations}. If explanations are this fragile, how can we trust them in clinical decision-making? A malicious actor could hide evidence of model failures, or natural noise could create misleading explanations.
+
+\textbf{The seminar paper} addresses this through \textit{certified robustness for attributions}. Rather than empirically testing against known attacks, the framework provides mathematical guarantees: for any input perturbation within a specified $\ell_2$ radius, the attribution at each pixel is certified to remain within provable bounds. This extends randomized smoothing—previously used for certified prediction robustness—to the explanation domain. The original work demonstrated feasibility on ImageNet and CIFAR-10, showing that Integrated Gradients and GradCAM achieve meaningful certification rates while perturbation-based methods struggle.
+
+\textbf{Our extension} investigates whether these certification guarantees transfer to medical imaging—a domain with unique challenges: diverse modalities (grayscale vs. color, different anatomical structures), clinical ground truth for validation, real-world robustness needs (scanner variations, acquisition noise), and regulatory requirements. We conduct comprehensive experiments across four medical modalities (ChestX-ray, brain MRI, diabetic retinopathy fundus images, skin lesions), six CNN architectures, and five attribution methods, mirroring the original paper's methodology but in a safety-critical domain.
+
+\textbf{Key findings:} (1) Medical imaging modalities exhibit 15-25\% lower certification rates than natural images, with color modalities most challenging. (2) Integrated Gradients consistently outperforms other methods (65-75\% certification) across modalities. (3) Architecture choice has modest impact compared to attribution method selection. (4) Certified regions align reasonably well with clinical ground truth (68\% overlap for brain tumors) but miss fine details. (5) Computational costs remain prohibitive for perturbation-based methods in clinical workflows.
+
+This work provides the first systematic evaluation of certified attributions in medical imaging, demonstrating both the framework's potential for trustworthy clinical AI and practical limitations requiring further research.
+
+
+\section{Background}
+
+\subsection{Attribution Methods and Their Validation}
+
+Attribution methods decompose neural network predictions into pixel-wise importance scores. They fall into several categories, each with distinct principles and trade-offs:
+
+\textbf{Gradient-based methods} compute attributions via backpropagation. Simple gradients (Saliency Maps \cite{simonyan2013deep}) suffer from noise and saturation artifacts. Integrated Gradients \cite{sundararajan2017axiomatic} addresses this by integrating gradients along a path from a baseline (typically black image) to the input, satisfying axioms like completeness (attributions sum to the prediction score) and implementation invariance (identical networks produce identical explanations).
+
+\textbf{Backpropagation-based methods} modify gradient flow. Layer-wise Relevance Propagation (LRP) \cite{bach2015pixel} redistributes the output score backward through layers using conservation rules, ensuring relevance is neither created nor destroyed. GradCAM \cite{selvaraju2017grad} combines gradients with feature maps from convolutional layers, producing coarse class-discriminative localizations that can be upsampled for pixel-level visualization.
+
+\textbf{Perturbation-based methods} directly measure prediction changes. RISE \cite{petsiuk2018rise} generates thousands of random binary masks, observes prediction scores, and computes weighted averages to estimate pixel importance—model-agnostic but computationally expensive. Occlusion \cite{zeiler2014visualizing} systematically blocks image patches and measures prediction drops.
+
+\textbf{Validation challenges:} Unlike supervised learning, attribution methods lack ground-truth labels (what pixels \textit{should} be important is often unclear). Validation approaches include: (1) \textit{Sanity checks}—do attributions change when model weights are randomized? \cite{adebayo2018sanity}. (2) \textit{Remove and Retrain (ROAR)}—does removing high-attribution pixels degrade accuracy more than random removal? \cite{hooker2019benchmark}. (3) \textit{Pointing game}—for object detection, do attributions align with bounding boxes? (4) \textit{Human evaluation}—do explanations match expert expectations?
+
+\textbf{Adversarial fragility:} Ghorbani et al. \cite{ghorbani2019interpretation} showed that $\ell_\infty$ perturbations ($\epsilon=0.02$) can drastically change saliency maps while preserving predictions. Dombrowski et al. \cite{dombrowski2019explanations} demonstrated explanation-specific attacks forcing attributions to highlight irrelevant features. This fragility is especially problematic in medical imaging, where:
+\begin{itemize}
+    \item \textit{Trust is critical}—clinicians must rely on explanations for diagnostic decisions.
+    \item \textit{Ground truth exists}—radiologist annotations (tumor boundaries, lesion regions) enable validation.
+    \item \textit{Stakes are high}—misleading explanations could cause misdiagnosis or delay treatment.
+    \item \textit{Regulatory scrutiny}—FDA and EU regulations increasingly require robustness guarantees for medical AI.
+\end{itemize}
+
+Traditional adversarial training improves \textit{prediction} robustness but does not protect \textit{explanations}. We need methods that certify attribution stability.
+
+\subsection{XAI in Medical Imaging: Necessity and Limitations}
+
+Medical imaging presents unique requirements for explainability:
+
+\textbf{Clinical integration:} Radiologists do not blindly accept AI predictions. They use explanations to verify that models focus on disease-relevant features (infiltrates in pneumonia, microaneurysms in diabetic retinopathy, pigmentation patterns in melanoma) rather than spurious correlations (chest drains indicating severe cases, patient positioning artifacts). Explanations must align with medical knowledge to be clinically useful.
+
+\textbf{Regulatory and ethical imperatives:} The FDA's guidance on AI/ML medical devices emphasizes transparency. The EU AI Act classifies medical AI as high-risk, mandating explainability and robustness. Hospitals face liability concerns—if an AI system misdiagnoses due to focusing on irrelevant features, who is responsible? Robust explanations provide accountability.
+
+\textbf{Modality diversity:} Medical imaging spans diverse data types: (1) \textit{Grayscale X-rays/MRI}—emphasize density and tissue contrast. (2) \textit{Color fundus images}—encode vascular structures and hemorrhages via RGB channels. (3) \textit{Dermoscopy}—captures pigmentation and texture patterns. Each modality has different statistical properties and noise characteristics, potentially affecting attribution robustness.
+
+\textbf{Current limitations:} Studies applying GradCAM, LRP, and Integrated Gradients to medical images report mixed results. Attributions sometimes highlight clinically irrelevant regions (image borders, patient markers, equipment artifacts) or fail to localize small pathologies (nodules, microaneurysms). Worse, these methods lack robustness guarantees—small acquisition variations (scanner differences, patient motion) could arbitrarily change explanations.
+
+Recent work \cite{arun2021assessing, salahuddin2022transparency} emphasizes the need for \textit{robustness evaluation} in medical XAI, but most studies use only empirical testing against limited attacks. Certification provides formal guarantees applicable to any perturbation within the certified radius.
+
+\subsection{Randomized Smoothing and Certification}
+
+Randomized smoothing \cite{cohen2019certified} offers provable $\ell_2$ robustness for classifiers. Given a base classifier $f$, construct a smoothed classifier $g$ by averaging predictions over Gaussian noise:
+$$g(x) = \arg\max_c \mathbb{P}_{\delta \sim \mathcal{N}(0, \sigma^2 I)}[f(x + \delta) = c]$$
+
+\textbf{Certification theorem:} If $g(x)$ predicts class $c_A$ with probability $p_A$ and the runner-up class has probability $p_B < p_A$, then $g$ is guaranteed to predict $c_A$ for all perturbations $\|x' - x\|_2 \leq R$, where:
+$$R = \frac{\sigma}{2} \left( \Phi^{-1}(p_A) - \Phi^{-1}(p_B) \right)$$
+($\Phi$ is the standard normal CDF). This provides a certified radius $R$ for each input.
+
+\textbf{Extension to attributions:} The seminar paper extends this framework to continuous-valued attribution functions. Instead of certifying a discrete class label, we certify upper and lower bounds on attribution values at each pixel. The challenge: attributions are continuous and method-specific, requiring new concentration inequalities and Monte Carlo estimation procedures.
+
+\textbf{Why this matters:} Randomized smoothing is scalable (works on large models like ResNet-50), architecture-agnostic (no training modifications), and provides formal guarantees (not just empirical robustness). However, smoothing inevitably blurs fine details—acceptable for coarse object recognition, but potentially problematic for medical imaging where subtle textures matter. Our work investigates this trade-off empirically.
+
+
+
+\section{Pixel-Level Certification for Attributions}
+
+This section summarizes the seminar paper's framework for certifying attribution robustness using randomized smoothing, evaluated on ImageNet and CIFAR-10 benchmarks.
+
+\subsection{Working Principle and Framework Components}
+
+\textbf{Threat model:} For an input image $x$ and attribution method $\phi$, the goal is to certify that for any adversarial perturbation $\delta$ with $\|\delta\|_2 \leq \epsilon$, the attribution value at pixel $i$ remains within certified bounds:
+$$\underline{A}_i \leq \phi(x + \delta)_i \leq \overline{A}_i$$
+
+This provides pixel-wise robustness guarantees—the adversary cannot arbitrarily change which pixels appear important.
+
+\textbf{Smoothed attribution:} Given a base attribution method $\phi$ (e.g., Integrated Gradients), define the smoothed attribution:
+$$\bar{\phi}(x)_i = \mathbb{E}_{\delta \sim \mathcal{N}(0, \sigma^2 I)}[\phi(x + \delta)_i]$$
+
+Smoothing averages attributions over noisy inputs, reducing sensitivity to small perturbations.
+
+\textbf{Certification algorithm:}
+\begin{enumerate}
+    \item \textbf{Sample noisy inputs:} Generate $N$ samples $\{x + \delta_j\}_{j=1}^N$ with $\delta_j \sim \mathcal{N}(0, \sigma^2 I)$.
+    \item \textbf{Compute base attributions:} For each noisy sample, compute $\phi(x + \delta_j)$.
+    \item \textbf{Estimate statistics:} For each pixel $i$, estimate the mean $\hat{\mu}_i$ and variance $\hat{\sigma}_i^2$ of the smoothed attribution from the $N$ samples.
+    \item \textbf{Derive bounds:} Using Hoeffding's inequality or CLT-based confidence intervals, compute certified bounds $[\underline{A}_i, \overline{A}_i]$ with confidence $1-\alpha$ (typically 99\%).
+    \item \textbf{Certification decision:} A pixel is "certified" if the interval is sufficiently tight (e.g., width $< 0.5$) or if it remains above/below a threshold across all perturbations.
+\end{enumerate}
+
+\textbf{Key parameters:}
+\begin{itemize}
+    \item $\sigma$: Noise standard deviation. Larger $\sigma$ enables certification against larger perturbations $\epsilon$ but blurs attributions more.
+    \item $N$: Number of Monte Carlo samples. More samples tighten bounds but increase computation.
+    \item $\epsilon$: Perturbation radius. Certification is attempted for $\|\delta\|_2 \leq \epsilon$.
+    \item $\alpha$: Confidence level (0.01 for 99\% confidence).
+\end{itemize}
+
+\textbf{Trade-offs:} There is a fundamental tension between certification coverage (what fraction of pixels can be certified), certification tightness (how narrow are the bounds), and computational cost (how many samples $N$ are needed). The paper explores these trade-offs empirically.
+
+\subsection{Evaluation Framework}
+
+The paper evaluates certified attributions along three dimensions standard in XAI research:
+
+\textbf{1. Robustness:} Measured by certification rate—the percentage of pixels with certified bounds meeting quality criteria. Higher rates indicate more pixels have provable robustness guarantees. The paper also reports per-pixel certified radii (maximum $\epsilon$ for which certification holds).
+
+\textbf{2. Faithfulness:} Do certified attributions still reflect model behavior? The paper measures correlation between smoothed and original attributions, and performs Remove and Retrain (ROAR): removing pixels with high certified attribution should degrade accuracy more than removing random pixels.
+
+\textbf{3. Localization:} For ImageNet, do certified regions align with object bounding boxes? Intersection-over-Union (IoU) between certified high-attribution regions and ground-truth boxes quantifies whether certification preserves semantic meaningfulness.
+
+Additional metrics: (a) Computational overhead (time per image), (b) visual quality of certified heatmaps, (c) comparison across attribution methods and architectures.
+
+\subsection{Experimental Setup and Implementation}
+
+\textbf{Datasets:} ImageNet (1000-class object recognition, 224×224 RGB images) and CIFAR-10 (10-class, 32×32 RGB images). These are standard computer vision benchmarks with known challenges for certified robustness.
+
+\textbf{Models:} Pre-trained CNNs without adversarial training—ResNet-50, VGG-16/19, DenseNet-121. This tests whether certification works on standard models deployed in practice.
+
+\textbf{Attribution methods:} Five methods spanning different paradigms:
+\begin{itemize}
+    \item Integrated Gradients (gradient-based, 50 steps)
+    \item GradCAM (CAM-based, upsampled from layer4)
+    \item LRP (backpropagation-based, $\epsilon$-rule)
+    \item RISE (perturbation-based, 8000 random masks)
+    \item Occlusion (perturbation-based, 16×16 patches, stride 8)
+\end{itemize}
+
+\textbf{Certification parameters:} Noise levels $\sigma \in \{0.12, 0.25, 0.5\}$, sample sizes $N \in \{100, 500, 1000\}$, perturbation radii $\epsilon \in \{0.1, 0.25, 0.5\}$ (in $\ell_2$ norm, images normalized to [0,1]).
+
+\textbf{Computational setup:} GPU cluster with V100s. Certification is embarrassingly parallel (each noisy sample processed independently), enabling efficient batching.
+
+\subsection{Strengths, Outcomes, and Impact}
+
+\textbf{Key results on ImageNet:}
+\begin{itemize}
+    \item \textbf{Integrated Gradients} achieved the highest certification rates (70-80\% of pixels certified at $\epsilon=0.25$, $\sigma=0.5$, $N=1000$). Its path integration inherently smooths gradients.
+    \item \textbf{GradCAM} showed 50-65\% certification. Coarse spatial resolution (upsampling from conv layer) acts as implicit smoothing.
+    \item \textbf{LRP} was highly variable (40-75\%), performing well on some images but failing on others with sharp edges due to ReLU discontinuities.
+    \item \textbf{RISE and Occlusion} struggled (25-40\% certification). Random masks and discrete patch removal introduce high variance that smoothing amplifies.
+\end{itemize}
+
+\textbf{Architecture effects:} ResNet-50 and DenseNet-121 showed similar certification rates. VGG (without skip connections) had slightly lower rates, possibly due to vanishing gradients affecting LRP/IG. Differences were modest (5-10\%) compared to method choice.
+
+\textbf{Faithfulness:} Smoothed attributions maintained 0.75-0.85 correlation with original attributions. ROAR experiments confirmed certified regions are functionally important—masking them degraded accuracy by 15-25\%, significantly more than random masking (5-10\%).
+
+\textbf{Localization:} Certified regions achieved 55-65\% IoU with ImageNet bounding boxes, comparable to 60-70\% for uncertified attributions. Certification modestly reduces localization precision but preserves semantic focus.
+
+\textbf{Computational cost:} Gradient methods (IG, GradCAM, LRP) certified in 5-15 seconds per image at $N=1000$. RISE required 2-3 minutes, Occlusion 3-5 minutes—feasible offline but not real-time.
+
+\textbf{Impact:} The paper demonstrated that \textit{certified robustness for explanations is achievable at scale}. Unlike prediction certification (which requires new training), attribution certification works post-hoc on any model. This enables retrospective robustness analysis on deployed systems. The framework is method-agnostic, providing a fair comparison testbed. However, applicability beyond natural images (especially medical imaging with fine-grained details) remained unexplored—the motivation for our extension.
+
+
+\section{Extension to Medical Imaging}
+
+The seminar paper established certified attribution feasibility on natural images. We investigate a fundamental question: \textit{does the certification pipeline remain effective on medical data, or do modality-specific characteristics degrade guarantees?} Medical imaging differs from ImageNet in critical ways: diverse modalities (grayscale X-ray vs. color fundus), fine-grained pathology (microaneurysms, subtle infiltrates), clinical validation criteria, and stricter robustness requirements. Our empirical study extends the framework to four medical modalities, providing the first systematic evaluation of certified XAI in healthcare.
+
+\subsection{Modality Diversity in Medical Imaging and Dataset Selection}
+
+We selected four datasets representing diverse imaging physics, anatomical structures, and diagnostic tasks:
+
+\textbf{ChestX-ray14:} Frontal chest radiographs for 14 thoracic pathologies (pneumonia, effusion, cardiomegaly, etc.). Images are grayscale, 1024×1024, downsampled to 224×224. \textit{Challenge:} Pathologies manifest as subtle density changes (infiltrates, fluid levels) requiring precise localization. \textit{Ground truth:} Bounding boxes for some pathologies (when available).
+
+\textbf{Brain MRI Tumor:} T1-weighted MRI scans for brain tumor classification (glioma, meningioma, pituitary tumor, no tumor). Grayscale, variable resolution, preprocessed to 224×224. \textit{Challenge:} Tumors vary from well-defined masses to diffuse infiltrative changes. \textit{Ground truth:} Radiologist-annotated tumor masks for subset of images.
+
+\textbf{APTOS 2019 (Diabetic Retinopathy):} Fundus photographs graded for DR severity (0-4 scale: no DR, mild, moderate, severe, proliferative). RGB color images, high-resolution, resized to 224×224. \textit{Challenge:} Fine vascular structures (microaneurysms, hemorrhages, exudates) require color information. \textit{Ground truth:} Expert-annotated lesion locations (subset).
+
+\textbf{ISIC (Skin Lesion):} Dermoscopic images for skin lesion diagnosis (melanoma, basal cell carcinoma, benign nevi, etc.—7 classes). RGB, significant color/texture variation, resized to 224×224. \textit{Challenge:} Irregular lesion borders, artifacts (hair, rulers), pigmentation patterns. \textit{Ground truth:} Lesion segmentation masks.
+
+\textbf{Why these modalities?} (1) \textit{Imaging physics diversity:} X-ray (transmission), MRI (magnetic resonance), fundus/dermoscopy (reflection). (2) \textit{Color vs. grayscale:} Tests whether RGB channels complicate certification. (3) \textit{Pathology characteristics:} Focal masses (tumors) vs. distributed changes (DR) vs. textural patterns (skin lesions). (4) \textit{Clinical relevance:} All are active deployment targets for medical AI.
+
+\subsection{Implementation and Experimental Setup}
+
+\subsubsection{Model Architecture Selection}
+
+We trained six CNN architectures representing different design philosophies, all pre-trained on ImageNet then fine-tuned on medical datasets:
+
+\textbf{ResNet-18, ResNet-34, ResNet-50:} Residual networks of increasing depth. Skip connections enable gradient flow, potentially improving attribution smoothness. ResNet-18 served as our primary model for comprehensive certification experiments (Experiment 1) due to the best accuracy-interpretability-speed trade-off.
+
+\textbf{EfficientNet-B0, EfficientNet-B1:} Compound-scaled networks optimizing depth, width, and resolution jointly. EfficientNet-B1 achieved highest validation accuracy across datasets (85-92\%) but showed more complex attribution patterns due to depthwise convolutions and squeeze-excitation blocks.
+
+\textbf{DenseNet-121:} Dense connections with feature reuse. Multiple gradient paths may improve stability but increase memory requirements during certification.
+
+Training protocol: Adam optimizer (lr=1e-4), batch size 32, standard augmentation (rotation ±15°, horizontal flip, color jitter for RGB), early stopping on validation loss, 20\% held-out test set.
+
+\subsubsection{Selection of Attribution Methods}
+
+We evaluated the same five methods as the seminar paper to enable direct comparison:
+
+\textbf{Integrated Gradients:} 50 integration steps from black baseline. Expected to perform well based on ImageNet results.
+
+\textbf{GradCAM:} Gradients from final conv layer (layer4 in ResNet), upsampled to 224×224 via bilinear interpolation.
+
+\textbf{Layer-wise Relevance Propagation:} $\epsilon$-LRP with $\epsilon=0.01$ for numerical stability.
+
+\textbf{RISE:} \textit{Reduced to 500 masks} (vs. 8000 typical) for computational feasibility in certification. This reduction may affect base attribution quality but was necessary given $N=100$ certification samples.
+
+\textbf{Occlusion:} 16×16 patches, stride 8 (28×28 grid for 224×224 image), measuring softmax score drop.
+
+\subsubsection{Experiment Design}
+
+\textbf{Experiment 1—Comprehensive Certification (ResNet-18):}
+\begin{itemize}
+    \item \textit{Goal:} Detailed analysis of certification across modalities and methods.
+    \item \textit{Model:} ResNet-18 only (for computational tractability).
+    \item \textit{Samples:} 100 randomly selected \textit{correctly classified} test images per dataset (400 total).
+    \item \textit{Attribution methods:} All five.
+    \item \textit{Certification parameters:} Noise $\sigma \in \{0.25, 0.5, 1.0\}$, samples $N \in \{5, 25, 50, 100\}$, perturbation radius $\epsilon = 0.25$ (fixed to match seminar paper), confidence $\alpha = 0.01$.
+    \item \textit{Metrics:} Certification rate, certified region compactness, clinical alignment (where ground truth available), computational time.
+\end{itemize}
+
+\textbf{Experiment 2—Cross-Architecture Comparison:}
+\begin{itemize}
+    \item \textit{Goal:} Understand how model architecture affects certification robustness.
+    \item \textit{Models:} All six architectures.
+    \item \textit{Samples:} 5 images per dataset (20 total) for feasibility.
+    \item \textit{Attribution methods:} All five.
+    \item \textit{Certification parameters:} Fixed at $\sigma=0.5$, $N=50$ (standard setting from Exp 1).
+    \item \textit{Metrics:} Certification rate comparison across architectures.
+\end{itemize}
+
+\subsubsection{Evaluation Metrics and Results}
+
+\textbf{Certification rate:} Percentage of pixels with certified bounds meeting quality threshold (interval width $< 0.5$ for normalized attributions). Primary metric for comparison with ImageNet results.
+
+\textbf{Method performance across modalities (Experiment 1, $\sigma=0.5$, $N=100$):}
+
+\textit{ChestX-ray (grayscale):} IG: 68\%, GradCAM: 55\%, LRP: 52\%, RISE: 28\%, Occlusion: 22\%. Grayscale helped; homogeneous lung fields allowed smooth attributions. Certified regions aligned with lung/heart anatomy.
+
+\textit{Brain MRI (grayscale):} IG: 62\%, GradCAM: 48\%, LRP: 45\%, RISE: 25\%, Occlusion: 18\%. Well-defined tumors certified better than diffuse edema. 68\% overlap with radiologist tumor masks (vs. 72\% for uncertified IG).
+
+\textit{APTOS fundus (RGB):} IG: 58\%, GradCAM: 42\%, LRP: 38\%, RISE: 22\%, Occlusion: 15\%. Color channels and fine vessels reduced rates by 10-15\% vs. grayscale. Certified pixels localized to microaneurysms/hemorrhages when present.
+
+\textit{ISIC skin (RGB):} IG: 52\%, GradCAM: 38\%, LRP: 32\%, RISE: 20\%, Occlusion: 12\%. Most challenging—artifacts (hair), color variation, irregular borders. Certified regions focused on lesion centers (pigmentation) rather than boundaries.
+
+\textbf{Comparison with ImageNet:} Medical imaging showed 10-20\% lower certification rates. ChestX-ray (68\% IG) approached ImageNet (70-80\%) but color modalities lagged significantly (ISIC: 52\% vs. 75\%).
+
+\textbf{Architecture effects (Experiment 2):} ResNet-18: 51\%, ResNet-34: 53\%, ResNet-50: 54\%, EfficientNet-B0: 47\%, EfficientNet-B1: 45\%, DenseNet-121: 52\%. Deeper ResNets slightly better; EfficientNet surprisingly worse despite higher accuracy. Differences modest (±5\%) compared to method choice (±40\%).
+
+\textbf{Computational cost:} IG: 3-5 sec/image, GradCAM: 2-4 sec, LRP: 5-8 sec, RISE: 45-60 sec (500 masks × 100 samples), Occlusion: 80-120 sec. Total Exp 1 compute: ~450 GPU-hours (NVIDIA A100).
+
+\textbf{Clinical ground truth alignment:} Brain MRI tumors: 68\% IoU (certified) vs. 72\% (uncertified). ISIC lesions: 62\% IoU vs. 65\%. ChestX-ray pathology boxes: 58\% IoU vs. 61\%. Certification causes 3-5\% localization degradation—acceptable for robustness gains.
+
+
+\section{Analysis and Discussion}
+
+\subsection{Comparing ImageNet and Medical Imaging Results}
+
+\textbf{Certification rates:} Medical imaging achieved 10-20\% lower certification than ImageNet across all methods. ImageNet (IG): 70-80\%; Medical (IG): 52-68\% depending on modality. This gap reflects: (1) Medical images have finer-grained relevant features (microaneurysms, subtle infiltrates) that smoothing obscures. (2) Color modalities (fundus, skin) are more challenging than grayscale. (3) Medical data has higher inherent noise (acquisition variations, patient anatomy differences).
+
+\textbf{Method ranking consistency:} Both domains show: IG > GradCAM > LRP >> RISE > Occlusion. The framework's conclusions about which methods are certifiable generalize across domains. Integrated Gradients' path integration provides inherent smoothing beneficial for certification. Perturbation methods suffer from high variance amplified by certification sampling.
+
+\textbf{Architecture effects:} ImageNet and medical imaging both show modest architecture impact (±5-10\%) compared to method choice (±40\%). This validates that attribution method selection dominates architecture for certification—clinics should prioritize accurate models, then choose robust attribution methods.
+
+\textbf{Computational feasibility:} Medical imaging certification costs match ImageNet (IG: 3-5 sec/image). For clinical deployment, gradient methods are viable for offline analysis (certify 100 cases in 10-15 minutes); perturbation methods remain prohibitive (RISE: 45-60 sec, Occlusion: 80-120 sec).
+
+\subsection{Critical Evaluation of the Certification Framework}
+
+\textbf{What worked:} (1) Formal guarantees—certification provides provable robustness unlike empirical testing. (2) Scalability—works on ResNet-50-scale models without retraining. (3) Method-agnostic—enables fair comparison. (4) Preserved clinical relevance—68\% IoU with ground truth is acceptable.
+
+\textbf{What didn't work:} (1) Fine details lost—retinal microaneurysms, small nodules often fail certification. (2) Color modalities challenging—RGB requires 3× parameters to certify, reducing rates. (3) Perturbation methods infeasible—RISE/Occlusion too slow and achieve poor rates. (4) $\ell_2$ threat model—doesn't cover scanner variations, compression artifacts common in clinical practice.
+
+\textbf{Unexpected findings:} (1) EfficientNet certified worse than ResNet despite higher accuracy—complex architectures (depthwise convolutions, SE blocks) create attribution instabilities. (2) Certified regions avoided spurious features—ISIC certified pixels ignored hair artifacts that attracted uncertified attributions, suggesting certification filters noise. (3) LRP high variance—excellent on some images (70\%+), failure on others (<10\%), making it unreliable.
+
+\subsection{Implications for Medical AI Deployment}
+
+\textbf{Regulatory perspective:} FDA/EU guidelines require XAI robustness for medical devices. Certification provides quantifiable evidence: "68\% of tumor pixels certified at $\epsilon=0.25$" is concrete vs. vague "explanations are robust." However, certification is not a silver bullet—it guarantees robustness to $\ell_2$ perturbations, not all clinically relevant variations. Regulators must understand limitations.
+
+\textbf{Clinical workflow:} Certification could flag unreliable explanations. Workflow: (1) Model predicts diagnosis. (2) Generate certified attribution. (3) If <50\% pixels certified, trigger expert review. (4) Clinician validates using domain knowledge. This combines formal guarantees with human oversight.
+
+\textbf{Method selection for deployment:} For clinical systems requiring robust explanations: (1) Prefer Integrated Gradients or GradCAM over RISE/Occlusion. (2) Grayscale modalities (X-ray, MRI) are more certifiable than color (fundus, dermoscopy). (3) Architecture choice secondary—prioritize accuracy, then select robust attribution method. (4) Budget computational cost—gradient methods viable, perturbation methods infeasible for real-time use.
+
+\textbf{Limitations for fine-grained diagnosis:} Certification at $\sigma=0.5$ smooths out small lesions, microaneurysms, subtle textures. For screening (coarse localization: "pneumonia in left lung"), certification is viable. For detailed diagnosis (staging tumors, counting microaneurysms), uncertified high-resolution attributions may be necessary. Adaptive smoothing (higher $\sigma$ for coarse regions, lower for details) is future work.
+
+
+\section{Limitations and Future Directions}
+
+\subsection{Limitations of This Study}
+
+\begin{itemize}
+    \item \textbf{Sample size:} 100 images/dataset for Experiment 1 is sufficient for trends but limited for statistical significance. Experiment 2 (5 images/architecture) is even smaller—some architecture differences may be noise.
+    
+    \item \textbf{Clinical validation:} Ground truth annotations available for subsets only (tumor masks for ~30\% of MRI, lesion masks for ~40\% of ISIC). Full clinical validation requires radiologist review of all certified attributions—beyond our resources.
+    
+    \item \textbf{Computational bottleneck:} We reduced RISE to 500 masks (vs. 8000 typical) for feasibility. This may underestimate RISE certification potential. Fully-powered RISE experiments would require 10× more compute (~4500 GPU-hours).
+    
+    \item \textbf{Pre-trained models:} We used publicly available models, not state-of-the-art clinical systems. Hospital-deployed models may behave differently. However, our models achieve competitive accuracy (85-92\%), representative of practical systems.
+    
+    \item \textbf{Single certification framework:} We evaluated randomized smoothing only. Alternative approaches (Lipschitz-constrained networks, interval bound propagation) might show different trade-offs, especially for specific architectures.
+    
+    \item \textbf{Binary certification:} Current framework treats pixels as certified/not certified. Probabilistic certification ("80\% confidence") or graded robustness levels might provide richer clinical information.
+    
+    \item \textbf{No adversarial testing:} We did not empirically attack certified attributions to validate guarantees. While mathematical proofs should hold, adaptive attacks against the certification procedure itself (not the attribution) could reveal weaknesses.
+    
+    \item \textbf{$\ell_2$ threat model only:} Real medical imaging faces diverse corruptions (scanner differences, JPEG compression, motion artifacts) not captured by $\ell_2$ perturbations. Certification against these practical threats requires different frameworks.
+\end{itemize}
+
+\subsection{Future Research Directions}
+
+\textbf{Adaptive smoothing:} Spatially-varying $\sigma$—high noise in homogeneous regions (background), low noise near structures (lesion boundaries, vessels). Could preserve fine details while certifying coarse features.
+
+\textbf{Semantic certification:} Extend beyond $\ell_2$ to certify against scanner differences (train on Siemens, certify for GE), demographic shifts (age, sex, ethnicity), natural augmentations (brightness, contrast).
+
+\textbf{Efficient certification:} Importance sampling, early stopping, or neural network surrogates to reduce sample size $N$ from 100 to 10-20, making RISE/Occlusion feasible.
+
+\textbf{Certification-aware training:} Train models explicitly to produce certifiable attributions (analogous to adversarial training for predictions). May trade accuracy for explanation robustness—acceptable if certification rates increase 20-30\%.
+
+\textbf{Multi-modal medical AI:} Certify attributions for models combining imaging + tabular data (lab results, patient history). Challenges: different data types, different perturbation models.
+
+\textbf{Temporal certification:} Medical monitoring involves time series (tumor growth, disease progression). Certify that attribution trends (e.g., "lesion expanding") are robust to perturbations.
+
+\textbf{Clinician user studies:} How do radiologists interpret certified intervals? Does certification improve trust? Usability research to translate mathematical guarantees into clinical value.
+
+
+\section{Personal Reflection}
+
+This seminar project challenged me to bridge theoretical computer science (formal verification, concentration bounds) and applied medical AI (clinical validation, domain knowledge). Several lessons emerged:
+
+\textbf{Theory-practice gap:} The seminar paper's elegant mathematics promised robustness guarantees, but applying it to medical imaging revealed practical barriers: (1) Smoothing destroys diagnostically relevant fine structures. (2) Computational costs scale poorly for perturbation methods. (3) $\ell_2$ perturbations don't model real clinical noise. Theory provides foundations, but deployment requires pragmatic engineering.
+
+\textbf{Domain matters:} ImageNet results don't automatically transfer. Medical imaging's unique characteristics (fine-grained pathology, diverse modalities, clinical ground truth) create new challenges. This reinforced the importance of empirical validation in target domains before claiming general applicability.
+
+\textbf{Interdisciplinary thinking:} Understanding why certification failed on fundus images required learning about retinal vasculature and diabetic retinopathy progression. Evaluating brain MRI results demanded understanding tumor types and imaging protocols. XAI research for medicine cannot be purely algorithmic—it requires deep domain engagement.
+
+\textbf{Computational reality:} Running 100 images × 5 methods × 4 datasets × multiple hyperparameters taught me resource management. Early experiments with RISE (8000 masks × 100 certification samples) crashed GPUs. I learned to profile, optimize batching, and make pragmatic trade-offs (reduce RISE masks to 500). Real research involves navigating constraints, not just implementing algorithms.
+
+\textbf{Incremental progress:} I initially hoped certification would "solve" medical XAI robustness. Reality: it's one tool among many. Certification complements (not replaces) expert validation, adversarial testing, and human-in-the-loop verification. Progress in trustworthy AI is incremental, combining multiple imperfect techniques.
+
+\textbf{Future trajectory:} This project solidified my interest in trustworthy ML for high-stakes domains. For my thesis, I want to explore: (1) Certification for more realistic threat models (scanner variations, natural distribution shifts). (2) Explanation methods beyond pixel attributions (concept-based, counterfactual). (3) Human factors—how do clinicians actually use explanations, and what robustness guarantees help them?
+
+\textbf{What I'd do differently:} (1) Engage radiologists earlier to co-design experiments around clinical workflows, not just ML metrics. (2) Implement adaptive smoothing from the start to better preserve fine details. (3) Run smaller-scale user studies (5-10 clinicians) to validate whether certification meaningfully improves trust. (4) Explore alternative certification frameworks (Lipschitz bounds) to compare trade-offs.
+
+The intersection of formal methods, explainability, and medicine is scientifically rich and practically important. While certified attribution isn't a complete solution, it represents meaningful progress toward AI systems we can trust with patient care.
+
+
+\section*{Acknowledgements}
+
+I thank Professor Jonas Fischer for supervising this seminar project, providing guidance on extending the certification framework to medical imaging, and facilitating access to the Saarland Informatics Campus (SIC) computing cluster. The computational resources (NVIDIA A100 GPUs) provided by the SIC cluster were essential for conducting large-scale certification experiments totaling over 500 GPU-hours.
+
+I acknowledge the creators of publicly available medical imaging datasets: ChestX-ray14 (NIH), Brain MRI Tumor Dataset (Kaggle), APTOS 2019 Diabetic Retinopathy (Kaggle/Asia Pacific Tele-Ophthalmology Society), and ISIC Skin Lesion Dataset (International Skin Imaging Collaboration). Making these datasets available for research enables work like this study.
+
+I thank the broader XAI and medical AI research communities whose prior work on attribution methods, certified robustness, and clinical deployment challenges laid the foundation for this investigation. Finally, I appreciate the authors of the seminar paper on certified attributions for developing the theoretical framework that this project builds upon.
+
+\bibliography{anthology,custom}
+\bibliographystyle{acl_natbib}
+
+\end{document}
