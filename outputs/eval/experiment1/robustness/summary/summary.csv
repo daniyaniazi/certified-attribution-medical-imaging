@@ -1,0 +1,17 @@
+dataset,model,mean_pct_certified,total_images
+brain_mri,densenet121,68.60921556122449,75.0
+brain_mri,efficientnet_b1,63.47417091836734,75.0
+brain_mri,mobilenet_v2,71.49178890306123,75.0
+brain_mri,resnet18,68.28010735544218,75.0
+chestxray,densenet121,50.68218537414967,75.0
+chestxray,efficientnet_b1,58.86298894557823,75.0
+chestxray,mobilenet_v2,51.73623511904761,75.0
+chestxray,resnet18,59.7046662414966,75.0
+fundus,densenet121,46.41121917517007,75.0
+fundus,efficientnet_b1,52.85626594387755,75.0
+fundus,mobilenet_v2,54.21675701530611,75.0
+fundus,resnet18,48.83033056972789,75.0
+isic,densenet121,54.67394770408164,75.0
+isic,efficientnet_b1,57.07371386054422,75.0
+isic,mobilenet_v2,54.40311437074829,75.0
+isic,resnet18,55.72010522959184,75.0

@@ -1,0 +1,98 @@
+{
+  "per_dataset": {
+    "brain_mri": {
+      "mean_pct_certified": 67.96382068452381,
+      "total_images": 300.0
+    },
+    "chestxray": {
+      "mean_pct_certified": 55.24651892006802,
+      "total_images": 300.0
+    },
+    "fundus": {
+      "mean_pct_certified": 50.5786431760204,
+      "total_images": 300.0
+    },
+    "isic": {
+      "mean_pct_certified": 55.46772029124149,
+      "total_images": 300.0
+    }
+  },
+  "per_model": {
+    "brain_mri": {
+      "densenet121": {
+        "mean_pct_certified": 68.60921556122449,
+        "total_images": 75.0
+      },
+      "efficientnet_b1": {
+        "mean_pct_certified": 63.47417091836734,
+        "total_images": 75.0
+      },
+      "mobilenet_v2": {
+        "mean_pct_certified": 71.49178890306123,
+        "total_images": 75.0
+      },
+      "resnet18": {
+        "mean_pct_certified": 68.28010735544218,
+        "total_images": 75.0
+      }
+    },
+    "chestxray": {
+      "densenet121": {
+        "mean_pct_certified": 50.68218537414967,
+        "total_images": 75.0
+      },
+      "efficientnet_b1": {
+        "mean_pct_certified": 58.86298894557823,
+        "total_images": 75.0
+      },
+      "mobilenet_v2": {
+        "mean_pct_certified": 51.73623511904761,
+        "total_images": 75.0
+      },
+      "resnet18": {
+        "mean_pct_certified": 59.7046662414966,
+        "total_images": 75.0
+      }
+    },
+    "fundus": {
+      "densenet121": {
+        "mean_pct_certified": 46.41121917517007,
+        "total_images": 75.0
+      },
+      "efficientnet_b1": {
+        "mean_pct_certified": 52.85626594387755,
+        "total_images": 75.0
+      },
+      "mobilenet_v2": {
+        "mean_pct_certified": 54.21675701530611,
+        "total_images": 75.0
+      },
+      "resnet18": {
+        "mean_pct_certified": 48.83033056972789,
+        "total_images": 75.0
+      }
+    },
+    "isic": {
+      "densenet121": {
+        "mean_pct_certified": 54.67394770408164,
+        "total_images": 75.0
+      },
+      "efficientnet_b1": {
+        "mean_pct_certified": 57.07371386054422,
+        "total_images": 75.0
+      },
+      "mobilenet_v2": {
+        "mean_pct_certified": 54.40311437074829,
+        "total_images": 75.0
+      },
+      "resnet18": {
+        "mean_pct_certified": 55.72010522959184,
+        "total_images": 75.0
+      }
+    }
+  },
+  "overall": {
+    "mean_pct_certified": 57.314175767963434,
+    "total_images": 1200.0
+  }
+}
