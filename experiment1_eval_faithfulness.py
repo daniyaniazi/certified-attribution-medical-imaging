@@ -11,6 +11,7 @@ Outputs (written to outputs/experiment1/faithfulness/):
 """
 import argparse
 import glob
+import pickle
 from pathlib import Path
 from collections import defaultdict
 
@@ -83,14 +84,37 @@ def main():
 
         checkpoint_base = checkpoint_root / dataset
 
-        # Find available models with certification results
-        model_cert_dirs = {d.name: d for d in dataset_cert_dir.iterdir() if d.is_dir()}
-        models_available = list(model_cert_dirs.keys())
-        models_to_run = [m for m in args.models if m in models_available]
+        # Load dataset-level certification pickle: outputs/certifications/<dataset>/results_*.pkl
+        dataset_level_pkls = sorted(
+            [p for p in dataset_cert_dir.glob("results_*.pkl") if "partial" not in p.name],
+            key=lambda p: p.stat().st_mtime,
+        )
 
-        if not models_to_run:
-            print(f"[WARN] No matching models in {dataset_cert_dir}. Available: {models_available}")
+        if not dataset_level_pkls:
+            print(f"[WARN] No certification pickles found in {dataset_cert_dir}")
             continue
+
+        latest_pkl = dataset_level_pkls[-1]
+        print(f"  Using dataset-level pickle: {latest_pkl.name}")
+
+        try:
+            with open(latest_pkl, "rb") as f:
+                dataset_results = pickle.load(f)
+        except Exception as e:
+            print(f"[WARN] Failed to read pickle {latest_pkl}: {e}")
+            continue
+
+        models_available = [m for m in dataset_results.keys() if dataset_results[m]]
+        if not models_available:
+            print(f"[WARN] No models with results in {latest_pkl.name}")
+            continue
+
+        print(f"  Models found: {models_available}")
+
+        models_to_run = [m for m in args.models if m in models_available]
+        if not models_to_run:
+            models_to_run = models_available
+            print(f"[INFO] Using all available models: {models_to_run}")
 
         # Load dataset
         print(f"Loading dataset: {dataset}")
@@ -102,16 +126,15 @@ def main():
 
         for model_name in models_to_run:
             print(f"\nEvaluating model: {model_name}")
-            model_cert_dir = model_cert_dirs[model_name]
             output_dir = output_root / dataset / model_name
             output_dir.mkdir(parents=True, exist_ok=True)
 
-            # Find latest certification pickle
-            pkl_files = sorted(model_cert_dir.glob("results_*.pkl"))
-            if not pkl_files:
-                print(f"[WARN] No certification pickles found in {model_cert_dir}")
-                continue
-            pkl_path = pkl_files[-1]
+            # Write temp per-model pickle for evaluator to consume
+            pkl_path = output_dir / f"temp_results_{model_name}.pkl"
+            pkl_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(pkl_path, "wb") as f:
+                pickle.dump({model_name: dataset_results.get(model_name, {})}, f)
+
             print(f"  Using pickle: {pkl_path.name}")
 
             # Initialize evaluator
