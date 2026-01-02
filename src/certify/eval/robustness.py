@@ -8,6 +8,7 @@ from collections import defaultdict
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+from tqdm import tqdm
 
 from .base import BaseEvaluator
 
@@ -57,7 +58,7 @@ class RobustnessEvaluator(BaseEvaluator):
                     pct_certified_0 = []
                     certified_radius = []
                     
-                    for entry in entries:
+                    for entry in tqdm(entries, desc=f"{model_name}/{method_name}/k={k_percent}", leave=False):
                         res = entry.get('results', {})
                         c_map = res.get('certified_map')
                         
