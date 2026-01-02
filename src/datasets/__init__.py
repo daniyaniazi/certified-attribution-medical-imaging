@@ -1,6 +1,7 @@
 """Dataset factory helpers."""
 
 from pathlib import Path
+from typing import Union
 
 from src.datasets.brain_mri import BrainMRIDataset
 from src.datasets.chestxray import ChestXrayDataset
@@ -9,7 +10,7 @@ from src.datasets.isic import ISICDataset
 from src.datasets.base import BaseDataset
 
 
-def get_dataset(name: str, split: str = "test", data_dir: Path | str = Path("data")) -> BaseDataset:
+def get_dataset(name: str, split: str = "test", data_dir: Union[Path, str] = Path("data")) -> BaseDataset:
 	"""Return a dataset instance by name.
 
 	Args:
