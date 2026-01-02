@@ -62,12 +62,14 @@ def run_certification(args):
         "--checkpoint", checkpoint_path,
         "--grid_pt", args.grid_pt,
         "--save_dir", str(output_base),
+        "--heatmap_dir", str(heatmap_dir),
         "--num_samples", str(args.num_samples),
         "--batch_size", str(args.batch_size),
         "--sigma", str(args.sigma),
         "--tau", str(args.tau),
         "--alpha", str(args.alpha),
         "--k_percents", *args.k_percents,
+        "--panel_examples", str(args.panel_examples),
         "--max_noisy_samples", "3",
     ]
     
