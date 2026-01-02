@@ -63,6 +63,22 @@ class BaseEvaluator(ABC):
         # Default binary for others (chestxray, brain_mri, fundus, etc.)
         return 2
 
+    def _infer_num_classes_from_state(self, state: Any) -> Optional[int]:
+        """Infer num_classes from checkpoint weights if possible."""
+        if not isinstance(state, dict):
+            return None
+        candidates = [
+            'classifier.weight', 'fc.weight', 'head.weight',
+        ]
+        for key in candidates:
+            if key in state and hasattr(state[key], 'shape') and len(state[key].shape) >= 1:
+                return int(state[key].shape[0])
+        # Fallback: search any top-level weight ending with '.weight'
+        for k, v in state.items():
+            if k.endswith('.weight') and hasattr(v, 'shape') and len(v.shape) >= 1:
+                return int(v.shape[0])
+        return None
+
     def _load_model(self) -> torch.nn.Module:
         """Load trained model from checkpoint."""
         model_dir = self.checkpoint_dir / self.model_name
@@ -75,13 +91,6 @@ class BaseEvaluator(ABC):
         ckpt_path = ckpts[-1]
         print(f"  Loading checkpoint: {ckpt_path}")
         
-        num_classes = self._num_classes_for_dataset()
-        model_result = get_model(self.model_name, num_classes=num_classes, pretrained=False, device=self.device)
-        # get_model may return (model, config); handle both
-        if isinstance(model_result, tuple) and len(model_result) == 2:
-            model, _ = model_result
-        else:
-            model = model_result
         state = torch.load(ckpt_path, map_location=self.device)
 
         # Unwrap trainer-style checkpoints
@@ -94,6 +103,16 @@ class BaseEvaluator(ABC):
         # Handle DataParallel wrapper
         if isinstance(state, dict) and any(k.startswith('module.') for k in state.keys()):
             state = {k.replace('module.', ''): v for k, v in state.items()}
+
+        # Infer num_classes from checkpoint if possible
+        num_classes = self._infer_num_classes_from_state(state) or self._num_classes_for_dataset()
+
+        model_result = get_model(self.model_name, num_classes=num_classes, pretrained=False, device=self.device)
+        # get_model may return (model, config); handle both
+        if isinstance(model_result, tuple) and len(model_result) == 2:
+            model, _ = model_result
+        else:
+            model = model_result
 
         model.load_state_dict(state, strict=False)
         model.to(self.device)
