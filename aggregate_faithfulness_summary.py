@@ -296,8 +296,8 @@ def plot_method_by_dataset(dataset_method_aggs: dict, out_dir: Path):
     datasets = sorted(dataset_method_aggs.keys())
     methods = sorted({m for d in datasets for m in dataset_method_aggs[d].keys()})
     x = np.arange(len(datasets))
-    width = 0.12
-    fig, ax = plt.subplots(figsize=(14, 6))
+    width = 0.15
+    fig, ax = plt.subplots(figsize=(16, 7))
 
     for idx, method in enumerate(methods):
         vals = []
@@ -305,20 +305,18 @@ def plot_method_by_dataset(dataset_method_aggs: dict, out_dir: Path):
             vals.append(dataset_method_aggs[d].get(method, {}).get("mean_auc", 0.0))
         offset = (idx - len(methods) / 2 + 0.5) * width
         ax.bar(x + offset, vals, width, label=method, color=METHOD_COLORS.get(method, f"C{idx}"), edgecolor="black", linewidth=0.8)
-        for xi, val in zip(x + offset, vals):
-            ax.text(xi, val + 0.02, f"{val:.3f}", ha="center", va="bottom", fontsize=8)
 
     ax.set_xticks(x)
     ax.set_xticklabels([d.upper() for d in datasets], fontsize=11)
     ax.set_ylabel("Mean AUC", fontsize=12, fontweight="bold")
-    ax.set_ylim(0, 1.0)
+    ax.set_ylim(0, 1.1)
     ax.set_title("Attribution faithfulness by dataset (mean AUC)", fontsize=13, fontweight="bold")
-    ax.legend(title="Attribution method", ncol=3, fontsize=9)
+    ax.legend(title="Attribution method", ncol=3, fontsize=9, loc='upper right')
     ax.grid(axis="y", alpha=0.25, linestyle="--")
 
     plt.tight_layout()
     out_path = out_dir / "method_by_dataset.png"
-    plt.savefig(out_path, dpi=150, bbox_inches="tight")
+    plt.savefig(out_path, dpi=150)
     plt.close()
     print(f"  ✓ Method-by-dataset comparison written to {out_path}")
 
