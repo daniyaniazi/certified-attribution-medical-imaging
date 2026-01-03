@@ -1,0 +1,147 @@
+{
+  "GradCAM": {
+    "5": {
+      "num_images": 105,
+      "pct_certified": 91.72820244169097,
+      "pct_certified_std": 9.938673832124387,
+      "pct_abstained": 8.271797558309038,
+      "pct_certified_1": 7.27323630344995,
+      "pct_certified_0": 84.45496613824102,
+      "certified_radius": 0.10117346252941226
+    },
+    "25": {
+      "num_images": 105,
+      "pct_certified": 76.18373800413022,
+      "pct_certified_std": 18.65282577773404,
+      "pct_abstained": 23.816261995869777,
+      "pct_certified_1": 21.305310070456756,
+      "pct_certified_0": 54.87842793367347,
+      "certified_radius": 0.10117346252941226
+    },
+    "50": {
+      "num_images": 105,
+      "pct_certified": 73.9250979409621,
+      "pct_certified_std": 19.0048590463807,
+      "pct_abstained": 26.074902059037907,
+      "pct_certified_1": 43.31142948250729,
+      "pct_certified_0": 30.61366845845481,
+      "certified_radius": 0.10117346252941226
+    }
+  },
+  "IntegratedGradients": {
+    "5": {
+      "num_images": 105,
+      "pct_certified": 87.36774173955297,
+      "pct_certified_std": 2.312587805302734,
+      "pct_abstained": 12.632258260447037,
+      "pct_certified_1": 0.0016892917881438292,
+      "pct_certified_0": 87.36605244776483,
+      "certified_radius": 0.10117346252941226
+    },
+    "25": {
+      "num_images": 105,
+      "pct_certified": 26.335546495383866,
+      "pct_certified_std": 11.747716362013174,
+      "pct_abstained": 73.66445350461615,
+      "pct_certified_1": 0.16264653182701658,
+      "pct_certified_0": 26.17289996355685,
+      "certified_radius": 0.10117346252941226
+    },
+    "50": {
+      "num_images": 105,
+      "pct_certified": 9.090382804907676,
+      "pct_certified_std": 9.706169461439295,
+      "pct_abstained": 90.90961719509234,
+      "pct_certified_1": 2.462247175655977,
+      "pct_certified_0": 6.628135629251702,
+      "certified_radius": 0.10117346252941226
+    }
+  },
+  "LRP": {
+    "5": {
+      "num_images": 104,
+      "pct_certified": 86.89886599170919,
+      "pct_certified_std": 1.6038500017311637,
+      "pct_abstained": 13.101134008290815,
+      "pct_certified_1": 0.130023087961146,
+      "pct_certified_0": 86.76884290374804,
+      "certified_radius": 0.10117346252941227
+    },
+    "25": {
+      "num_images": 104,
+      "pct_certified": 48.2284282402865,
+      "pct_certified_std": 7.155916090981823,
+      "pct_abstained": 51.771571759713495,
+      "pct_certified_1": 3.102904698538069,
+      "pct_certified_0": 45.12552354174842,
+      "certified_radius": 0.10117346252941227
+    },
+    "50": {
+      "num_images": 104,
+      "pct_certified": 36.394315087813965,
+      "pct_certified_std": 8.312979248250912,
+      "pct_abstained": 63.60568491218602,
+      "pct_certified_1": 16.899571201677787,
+      "pct_certified_0": 19.494743886136185,
+      "certified_radius": 0.10117346252941227
+    }
+  },
+  "Occlusion": {
+    "5": {
+      "num_images": 104,
+      "pct_certified": 91.05887660052002,
+      "pct_certified_std": 2.568140936341482,
+      "pct_abstained": 8.941123399479984,
+      "pct_certified_1": 1.1489748393347725,
+      "pct_certified_0": 89.90990176118524,
+      "certified_radius": 0.10117346252941227
+    },
+    "25": {
+      "num_images": 104,
+      "pct_certified": 56.05154471644427,
+      "pct_certified_std": 9.113454827436003,
+      "pct_abstained": 43.94845528355573,
+      "pct_certified_1": 6.356663007751177,
+      "pct_certified_0": 49.694881708693096,
+      "certified_radius": 0.10117346252941227
+    },
+    "50": {
+      "num_images": 105,
+      "pct_certified": 34.12961613216715,
+      "pct_certified_std": 10.29599703351627,
+      "pct_abstained": 65.87038386783284,
+      "pct_certified_1": 17.741967322643344,
+      "pct_certified_0": 16.38764880952381,
+      "certified_radius": 0.10117346252941226
+    }
+  },
+  "RISE": {
+    "5": {
+      "num_images": 105,
+      "pct_certified": 92.53084381073857,
+      "pct_certified_std": 1.5971130033873244,
+      "pct_abstained": 7.469156189261418,
+      "pct_certified_1": 0.0,
+      "pct_certified_0": 92.53084381073857,
+      "certified_radius": 0.10117346252941226
+    },
+    "25": {
+      "num_images": 105,
+      "pct_certified": 3.1552174441205048,
+      "pct_certified_std": 5.90652442488782,
+      "pct_abstained": 96.84478255587949,
+      "pct_certified_1": 0.0021827927599611273,
+      "pct_certified_0": 3.153034651360543,
+      "certified_radius": 0.10117346252941226
+    },
+    "50": {
+      "num_images": 105,
+      "pct_certified": 0.31458788872691934,
+      "pct_certified_std": 1.4581922686720596,
+      "pct_abstained": 99.68541211127307,
+      "pct_certified_1": 0.17449055515063167,
+      "pct_certified_0": 0.14009733357628767,
+      "certified_radius": 0.10117346252941226
+    }
+  }
+}
