@@ -265,6 +265,58 @@ def plot_summary_bar(summary_json: Path, out_dir: Path):
     print(f"  ✓ Summary bar written to {out_path}")
 
 
+def plot_dataset_stacked(dataset_name: str, dataset_dir: Path):
+    """Plot per-model and dataset-averaged stacked robustness for a dataset."""
+    dataset_results = {}
+    model_dirs = [d for d in dataset_dir.iterdir() if d.is_dir() and (d / "robustness_results.json").exists()]
+    if not model_dirs:
+        print(f"[WARN] No model robustness files under {dataset_dir}")
+        return
+
+    for mdir in model_dirs:
+        model_name = mdir.name
+        rr = load_json(mdir / "robustness_results.json")
+        dataset_results[model_name] = rr
+
+    # Plot per-model stacked (already saved by evaluator)
+    # Now create dataset-averaged stacked plot
+    if dataset_results:
+        # Aggregate across models for this dataset
+        aggregated = {}
+        for method in next(iter(dataset_results.values())).keys():
+            aggregated[method] = {}
+            for k_percent in next(iter(dataset_results.values()))[method].keys():
+                # Collect metrics from all models
+                values = []
+                for model_results in dataset_results.values():
+                    metrics = model_results.get(method, {}).get(k_percent, {})
+                    if metrics:
+                        values.append(metrics)
+                
+                if values:
+                    # Average the metrics
+                    avg_metrics = {}
+                    for key in values[0].keys():
+                        if isinstance(values[0][key], (int, float)):
+                            avg_metrics[key] = float(np.mean([v.get(key, 0) for v in values]))
+                    aggregated[method][k_percent] = avg_metrics
+        
+        fig_dir = dataset_dir / "figures"
+        fig_dir.mkdir(parents=True, exist_ok=True)
+        plot_stacked_avg(
+            aggregated,
+            fig_dir / "dataset_avg_stacked.png",
+            f"(Dataset: {dataset_name.upper()}, Avg across models)"
+        )
+        
+        # Also save to dataset root
+        plot_stacked_avg(
+            aggregated,
+            dataset_dir / "avg_robustness.png",
+            f"(Dataset: {dataset_name.upper()}, Avg across models)"
+        )
+
+
 def main():
     parser = argparse.ArgumentParser(description="Aggregate and plot robustness summaries for Experiment 2")
     parser.add_argument(
@@ -345,9 +397,16 @@ Files:
 
     print(f"✓ Summary written to {summary_dir}")
 
+    # Plot per-dataset stacked averages
+    print("\nGenerating per-dataset averaged plots")
+    print("="*60)
+    for dpath in datasets:
+        dataset_name = dpath.name
+        plot_dataset_stacked(dataset_name, dpath)
+
     # Generate plots
     print("\n" + "="*60)
-    print("Generating plots")
+    print("Generating summary plots")
     print("="*60)
 
     # Global method robustness
