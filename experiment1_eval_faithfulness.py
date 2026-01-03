@@ -5,7 +5,7 @@ Inputs:
   outputs/certifications/<dataset>/<model>/results_*.pkl (certification results)
   outputs/checkpoints/<dataset>/<model>/final_model.pt (trained models)
 
-Outputs (written to outputs/experiment1/faithfulness/):
+Outputs (written to outputs/eval/experiment1/faithfulness/):
   <dataset>/<model>/faithfulness_results.json : per-method per-K faithfulness metrics
   <dataset>/<model>/figures/ : deletion confidence curves and other plots
 """
@@ -30,7 +30,7 @@ def main():
     )
     parser.add_argument(
         "--output_root",
-        default="outputs/experiment1/faithfulness",
+        default="outputs/eval/experiment1/faithfulness",
         help="Root directory where to save faithfulness results",
     )
     parser.add_argument(
