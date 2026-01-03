@@ -1,0 +1,5 @@
+dataset,model,mean_pct_certified,total_images
+fundus,resnet18,47.56845636692177,1500.0
+isic,resnet18,54.19594492355063,1570.0
+brain_mri,resnet18,68.12443797831634,1500.0
+chestxray,resnet18,59.477366337159864,1500.0

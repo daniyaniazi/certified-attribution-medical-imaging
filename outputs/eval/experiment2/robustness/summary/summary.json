@@ -1,0 +1,24 @@
+{
+  "per_dataset": {
+    "fundus": {
+      "mean_pct_certified": 47.56845636692177,
+      "total_images": 1500.0
+    },
+    "isic": {
+      "mean_pct_certified": 54.19594492355063,
+      "total_images": 1570.0
+    },
+    "brain_mri": {
+      "mean_pct_certified": 68.12443797831634,
+      "total_images": 1500.0
+    },
+    "chestxray": {
+      "mean_pct_certified": 59.477366337159864,
+      "total_images": 1500.0
+    }
+  },
+  "overall": {
+    "mean_pct_certified": 57.305275873735006,
+    "total_images": 6070.0
+  }
+}
