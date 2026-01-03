@@ -308,6 +308,8 @@ def aggregate_confidence_curves(root: Path):
     """Aggregate confidence curves per dataset and overall from cached JSON files."""
     dataset_curves = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
     overall_curves = defaultdict(lambda: defaultdict(list))
+    step_fracs = []
+    found_any = False
     
     for dpath in root.iterdir():
         if not dpath.is_dir() or dpath.name == "summary":
@@ -315,7 +317,7 @@ def aggregate_confidence_curves(root: Path):
         dataset_name = dpath.name
         
         # Load confidence curve data from resnet18 model's figures directory
-        conf_curve_file = dpath / "resnet18" / "figures" / "confidence_curves_data.json"
+        conf_curve_file = dpath / "resnet18" / "figures" / "faithfulness_confidence_curves_data.json"
         if not conf_curve_file.exists():
             print(f"[WARN] No confidence curves data for {dataset_name} at {conf_curve_file}")
             continue
@@ -323,6 +325,7 @@ def aggregate_confidence_curves(root: Path):
         try:
             conf_data = load_json(conf_curve_file)
             step_fracs = conf_data.get("step_fracs", [])
+            found_any = True
             
             for method, k_dict in conf_data.items():
                 if method == "step_fracs":
@@ -344,7 +347,7 @@ def aggregate_confidence_curves(root: Path):
                 dataset_avg[dataset_name][method][k_val] = np.mean(curves_list, axis=0).tolist()
     
     # Average curves overall
-    overall_avg = {"step_fracs": step_fracs}
+    overall_avg = {"step_fracs": step_fracs} if found_any else {}
     for method, k_dict in overall_curves.items():
         overall_avg[method] = {}
         for k_val, curves_list in k_dict.items():
@@ -523,6 +526,8 @@ Files:
     
     # Per-dataset confidence curves
     for dataset_name, curves_dict in dataset_conf_avg.items():
+        if not curves_dict:
+            continue
         dpath = root / dataset_name
         fig_dir = dpath / "figures"
         fig_dir.mkdir(parents=True, exist_ok=True)
@@ -530,11 +535,14 @@ Files:
                               f"GT Confidence Curves ({dataset_name.upper()}, resnet18)")
     
     # Overall confidence curves
-    if overall_conf_avg:
+    if overall_conf_avg and overall_conf_avg != {"step_fracs": []}:
         step_fracs_overall = overall_conf_avg.pop("step_fracs", [])
-        plot_confidence_curves(overall_conf_avg, step_fracs_overall,
-                              summary_dir / "figures" / "overall_confidence_curves.png",
-                              "GT Confidence Curves (Overall, all datasets, resnet18)")
+        if overall_conf_avg:  # Only plot if there are actual methods with data
+            plot_confidence_curves(overall_conf_avg, step_fracs_overall,
+                                  summary_dir / "figures" / "overall_confidence_curves.png",
+                                  "GT Confidence Curves (Overall, all datasets, resnet18)")
+    else:
+        print("[INFO] No confidence curves data available across all datasets")
 
     print("\n✓ Aggregation and comprehensive plotting complete")
 
