@@ -46,7 +46,7 @@ def parse_args():
     )
     parser.add_argument(
         "--output_base",
-        default="outputs/eval/experiment2",
+        default="outputs/eval/experiment2/robustness",
         help="Directory to write robustness outputs",
     )
     parser.add_argument(

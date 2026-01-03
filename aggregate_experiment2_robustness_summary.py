@@ -321,7 +321,7 @@ def main():
     parser = argparse.ArgumentParser(description="Aggregate and plot robustness summaries for Experiment 2")
     parser.add_argument(
         "--robustness_root",
-        default="outputs/eval/experiment2",
+        default="outputs/eval/experiment2/robustness",
         help="Root directory containing per-dataset robustness results",
     )
     args = parser.parse_args()
