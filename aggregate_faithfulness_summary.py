@@ -2,30 +2,19 @@
 """Aggregate and plot faithfulness results across datasets/models for Experiment 1.
 
 Inputs:
-  outputs/experiment1/faithfulness/<dataset>/<model>/faithfulness_results.json
+  outputs/eval/experiment1/faithfulness/<dataset>/<model>/faithfulness_results.json
 
-Outputs (written to outputs/experiment1/faithfulness/summary/):
+Outputs (written to outputs/eval/experiment1/faithfulness/summary/):
   - summary.json : structured aggregates
   - summary.csv  : tabular per-dataset/per-model aggregates
   - README.txt   : quick description and metric definitions
-
-Aggregations:
-  * per model (within dataset):
-      - mean_auc: weighted by num_images across methods and K
-  * per dataset: weighted mean over models (by entries)
-  * overall: weighted mean over all dataset/model entries
-  * per attribution method: global mean AUC across all datasets/models
-  * per attribution method by dataset: mean AUC per method per dataset
-
-Note: This assumes faithfulness_results.json format produced by FaithfulnessEvaluator:
-  { method -> { k_percent -> { num_images, mean_auc, mean_conf, ... } } }
 """
 import json
 import argparse
+import csv
 from pathlib import Path
 from collections import defaultdict
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 import numpy as np
 
 from src.certify.eval.faithfulness import FaithfulnessEvaluator
@@ -60,9 +49,9 @@ def aggregate_model(result_dict):
     vals = []
     for method, kdict in result_dict.items():
         for k, metrics in kdict.items():
-            n = metrics.get("num_images", 0)
-            v = metrics.get("mean_auc", 0.0)
-            vals.append((v, n))
+            n = metrics.get("num_images", 1)
+            auc = metrics.get("mean_auc", 0.0)
+            vals.append((auc, n))
     mean_auc, total_n = weighted_mean(vals)
     return {
         "mean_auc": mean_auc,
@@ -95,17 +84,24 @@ def aggregate_across_models(model_results_dict):
         for method, k_dict in methods_dict.items():
             for k, metrics in k_dict.items():
                 for metric_name, value in metrics.items():
-                    if isinstance(value, (int, float)):
-                        aggregated[method][k][metric_name].append(value)
+                    if metric_name == "num_images":
+                        aggregated[method][k]["num_images"].append(value)
+                    else:
+                        n = metrics.get("num_images", 1)
+                        aggregated[method][k][metric_name].append((value, n))
     
     # Compute means
     result = {}
     for method, k_dict in aggregated.items():
         result[method] = {}
         for k, metric_dict in k_dict.items():
-            result[method][k] = {}
-            for metric_name, values in metric_dict.items():
-                result[method][k][metric_name] = float(np.mean(values)) if values else 0.0
+            result[method][k] = {
+                "num_images": sum(metric_dict["num_images"]),
+            }
+            for metric_name, weighted_vals in metric_dict.items():
+                if metric_name != "num_images":
+                    mean_val, _ = weighted_mean(weighted_vals)
+                    result[method][k][metric_name] = mean_val
     
     return result
 
@@ -127,16 +123,16 @@ def plot_auc_curves(aggregated_results, output_path: Path, title_suffix: str, de
         
         for k_percent in k_values:
             metrics = aggregated_results[method][k_percent]
-            auc_vals.append(metrics.get('mean_auc', 0.0))
+            auc_vals.append(metrics.get("mean_auc", 0.0))
         
         ax.plot(
             range(len(k_values)),
             auc_vals,
-            marker='o',
+            marker="o",
             label=method,
             color=colors[method_idx],
-            linewidth=2.0,
-            markersize=8
+            linewidth=2.5,
+            markersize=8,
         )
     
     ax.set_xticks(range(len(k_values)))
@@ -217,9 +213,9 @@ def aggregate_by_method(root: Path):
             fa = load_json(fa_path)
             for method_name, kdict in fa.items():
                 for k, metrics in kdict.items():
-                    n = metrics.get("num_images", 0)
-                    v = metrics.get("mean_auc", 0.0)
-                    method_vals[method_name].append((v, n))
+                    n = metrics.get("num_images", 1)
+                    auc = metrics.get("mean_auc", 0.0)
+                    method_vals[method_name].append((auc, n))
     
     method_aggs = {}
     for method, vals in method_vals.items():
@@ -246,7 +242,7 @@ def plot_global_method_bar(method_aggs: dict, out_dir: Path):
     plt.title("Overall attribution method faithfulness (all datasets & models)")
     plt.xticks(rotation=45, ha='right')
     for bar, val in zip(bars, vals):
-        plt.text(bar.get_x() + bar.get_width()/2, val + 0.02, f"{val:.3f}", ha="center", va="bottom", fontsize=9)
+        plt.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.02, f"{val:.3f}", ha="center", fontsize=9)
     plt.tight_layout()
     out_path = out_dir / "global_method_faithfulness.png"
     plt.savefig(out_path, dpi=150)
@@ -269,10 +265,10 @@ def aggregate_by_dataset_and_method(root: Path):
                 continue
             fa = load_json(fa_path)
             for method_name, kdict in fa.items():
-                for _k, metrics in kdict.items():
-                    n = metrics.get("num_images", 0)
-                    v = metrics.get("mean_auc", 0.0)
-                    dataset_method[dataset_name][method_name].append((v, n))
+                for k, metrics in kdict.items():
+                    n = metrics.get("num_images", 1)
+                    auc = metrics.get("mean_auc", 0.0)
+                    dataset_method[dataset_name][method_name].append((auc, n))
     
     dataset_method_aggs = {}
     for dataset_name, method_vals in dataset_method.items():
@@ -289,7 +285,7 @@ def aggregate_by_dataset_and_method(root: Path):
 def plot_method_by_dataset(dataset_method_aggs: dict, out_dir: Path):
     """Single figure: grouped bars per dataset showing mean AUC per attribution method."""
     if not dataset_method_aggs:
-        print("[WARN] No dataset/method aggregates found; skipping method-by-dataset plot")
+        print("[WARN] No dataset-method aggregates found; skipping method-by-dataset plot")
         return
 
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -335,7 +331,7 @@ def plot_summary_bar(summary_json: Path, out_dir: Path):
     plt.ylim(0, 1.0)
     plt.title("Faithfulness summary (mean AUC per dataset)")
     for bar, val in zip(bars, vals):
-        plt.text(bar.get_x() + bar.get_width()/2, val + 0.02, f"{val:.3f}", ha="center", va="bottom", fontsize=9)
+        plt.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.02, f"{val:.3f}", ha="center", fontsize=9)
     plt.tight_layout()
     out_path = out_dir / "summary_mean_auc.png"
     plt.savefig(out_path, dpi=150)
@@ -347,6 +343,8 @@ def aggregate_confidence_curves(root: Path):
     """Aggregate confidence curves per dataset and overall from cached JSON files."""
     dataset_curves = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
     overall_curves = defaultdict(lambda: defaultdict(list))
+    step_fracs = []
+    found_any = False
     
     for dpath in root.iterdir():
         if not dpath.is_dir() or dpath.name == "summary":
@@ -356,45 +354,49 @@ def aggregate_confidence_curves(root: Path):
         for mdir in dpath.iterdir():
             if not mdir.is_dir():
                 continue
+            model_name = mdir.name
             
-            # Load confidence curves data
-            conf_data_path = mdir / "figures" / "faithfulness_confidence_curves_data.json"
-            if not conf_data_path.exists():
+            # Load confidence curve data from model's figures directory
+            conf_curve_file = mdir / "figures" / "faithfulness_confidence_curves_data.json"
+            if not conf_curve_file.exists():
                 continue
             
             try:
-                conf_data = load_json(conf_data_path)
+                conf_data = load_json(conf_curve_file)
                 step_fracs = conf_data.get("step_fracs", [])
-                k_values_dict = conf_data.get("k_values", {})
+                found_any = True
                 
+                # Structure: {"step_fracs": [...], "k_values": {"50": {"methods": {...}}, ...}}
+                k_values_dict = conf_data.get("k_values", {})
                 for k_str, k_entry in k_values_dict.items():
                     k_val = int(k_str)
-                    for method, stats in k_entry.get("methods", {}).items():
+                    methods_dict = k_entry.get("methods", {})
+                    for method, stats in methods_dict.items():
                         mean_conf = stats.get("mean_conf", [])
                         if mean_conf:
                             dataset_curves[dataset_name][method][k_val].append(mean_conf)
                             overall_curves[method][k_val].append(mean_conf)
             except Exception as e:
-                print(f"[WARN] Failed to load confidence data from {conf_data_path}: {e}")
+                print(f"[WARN] Failed to load confidence curves for {dataset_name}/{model_name}: {e}")
                 continue
     
     # Average curves per dataset
     dataset_avg = {}
     for dataset_name, method_dict in dataset_curves.items():
-        dataset_avg[dataset_name] = {"step_fracs": step_fracs}
+        dataset_avg[dataset_name] = {}
         for method, k_dict in method_dict.items():
+            dataset_avg[dataset_name][method] = {}
             for k_val, curves_list in k_dict.items():
                 if curves_list:
-                    avg_curve = np.mean(curves_list, axis=0).tolist()
-                    dataset_avg[dataset_name].setdefault(method, {})[k_val] = avg_curve
+                    dataset_avg[dataset_name][method][k_val] = np.mean(curves_list, axis=0).tolist()
     
     # Average curves overall
-    overall_avg = {"step_fracs": step_fracs}
+    overall_avg = {"step_fracs": step_fracs} if found_any else {}
     for method, k_dict in overall_curves.items():
+        overall_avg[method] = {}
         for k_val, curves_list in k_dict.items():
             if curves_list:
-                avg_curve = np.mean(curves_list, axis=0).tolist()
-                overall_avg.setdefault(method, {})[k_val] = avg_curve
+                overall_avg[method][k_val] = np.mean(curves_list, axis=0).tolist()
     
     return dataset_avg, overall_avg, step_fracs
 
@@ -405,7 +407,7 @@ def plot_confidence_curves(curves_dict: dict, step_fracs: list, output_path: Pat
     k_values = sorted({k for m in curves_dict.keys() if m in methods_order for k in curves_dict[m].keys()})
     
     if not k_values:
-        print(f"[WARN] No K values for confidence curves in {title}")
+        print(f"[WARN] No K values found for confidence curves in {title}")
         return
     
     fig, axes = plt.subplots(1, len(k_values), figsize=(6 * len(k_values), 6), sharey=True)
@@ -417,23 +419,23 @@ def plot_confidence_curves(curves_dict: dict, step_fracs: list, output_path: Pat
     for ax_idx, k_val in enumerate(k_values):
         ax = axes[ax_idx]
         for method in methods_order:
-            if method not in curves_dict or k_val not in curves_dict[method]:
-                continue
-            conf_curve = curves_dict[method][k_val]
-            color = METHOD_COLORS.get(method, f'C{methods_order.index(method)}')
-            ax.plot(step_labels, conf_curve, marker='o', label=method, color=color, linewidth=2)
+            if method in curves_dict and k_val in curves_dict[method]:
+                curve = curves_dict[method][k_val]
+                ax.plot(range(len(curve)), curve, marker='o', label=method, 
+                       color=METHOD_COLORS.get(method, 'gray'), linewidth=2, markersize=6)
         
-        ax.set_xlabel('Deletion steps', fontsize=12, fontweight='bold')
-        ax.set_title(f'K={k_val}%', fontsize=13, fontweight='bold')
-        ax.set_ylim(bottom=0.0, top=1.0)
-        ax.grid(alpha=0.3)
+        ax.set_xlabel('Deletion step', fontsize=11, fontweight='bold')
+        ax.set_title(f'K={k_val}%', fontsize=12, fontweight='bold')
+        ax.set_xticks(range(len(step_labels)))
+        ax.set_xticklabels(step_labels, rotation=45, ha='right', fontsize=9)
+        ax.grid(True, alpha=0.3)
     
     axes[0].set_ylabel('GT class confidence', fontsize=12, fontweight='bold')
     
     # Single legend
     handles, labels = axes[0].get_legend_handles_labels()
     if handles:
-        axes[0].legend(handles, labels, loc='upper left', fontsize=10)
+        fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 1.0), ncol=len(methods_order), fontsize=10)
     
     fig.suptitle(title, fontsize=14, fontweight='bold')
     plt.tight_layout(rect=[0, 0, 1, 0.96])
@@ -485,21 +487,20 @@ def main():
         for mdir in model_dirs:
             model_name = mdir.name
             fa_path = mdir / "faithfulness_results.json"
-            if fa_path.exists():
-                fa = load_json(fa_path)
-                agg = aggregate_model(fa)
-                summary["per_model"].setdefault(dataset_name, {})[model_name] = agg
-                model_aggs.append(agg)
-                csv_rows.append({
-                    "dataset": dataset_name,
-                    "model": model_name,
-                    "mean_auc": agg["mean_auc"],
-                    "total_images": agg["total_images"],
-                })
+            fa = load_json(fa_path)
+            agg = aggregate_model(fa)
+            summary["per_model"][f"{dataset_name}/{model_name}"] = agg
+            model_aggs.append(agg)
+            overall_vals.append((agg["mean_auc"], agg["total_images"]))
+            csv_rows.append({
+                "dataset": dataset_name,
+                "model": model_name,
+                "mean_auc": agg["mean_auc"],
+                "total_images": agg["total_images"],
+            })
+        
         if model_aggs:
-            d_agg = aggregate_dataset(model_aggs)
-            summary["per_dataset"][dataset_name] = d_agg
-            overall_vals.append((d_agg["mean_auc"], d_agg["total_images"]))
+            summary["per_dataset"][dataset_name] = aggregate_dataset(model_aggs)
 
     # Overall
     mean_overall, total_overall = weighted_mean(overall_vals)
@@ -513,7 +514,7 @@ def main():
         json.dump(summary, f, indent=2)
 
     # Save CSV
-    import csv
+    csv_rows.sort(key=lambda r: (r["dataset"], r["model"]))
     csv_path = summary_dir / "summary.csv"
     with open(csv_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=["dataset", "model", "mean_auc", "total_images"])
@@ -523,7 +524,7 @@ def main():
     # Save README
     readme = """Faithfulness summary
 
-This directory contains aggregated faithfulness metrics from outputs/experiment1/faithfulness.
+This directory contains aggregated faithfulness metrics from outputs/eval/experiment1/faithfulness.
 
 Fields:
 - mean_auc: weighted average of mean_auc across methods and K (weights = num_images per entry)
@@ -544,13 +545,18 @@ Files:
         dataset_name = dpath.name
         dataset_results = plot_dataset_faithfulness(dataset_name, dpath, checkpoint_root, device=args.device)
         if dataset_results:
-            for model_name, fa in dataset_results.items():
-                overall_model_results[f"{dataset_name}_{model_name}"] = fa
+            overall_model_results.update({f"{dataset_name}_{m}": res for m, res in dataset_results.items()})
 
     # Overall averaged AUC curves across all datasets/models
     if overall_model_results:
         print("\nGenerating overall average across all datasets/models")
-        overall_aggregated = aggregate_across_models(overall_model_results)
+        all_model_results = {dpath.name: {m.name: load_json(m / "faithfulness_results.json") for m in dpath.iterdir() if m.is_dir() and (m / "faithfulness_results.json").exists()} for dpath in datasets}
+        flat_results = {}
+        for dataset_name, models in all_model_results.items():
+            for model_name, results in models.items():
+                flat_results[f"{dataset_name}_{model_name}"] = results
+        
+        overall_aggregated = aggregate_across_models({f"{dataset_name}_{model_name}": res for dataset_name, models in all_model_results.items() for model_name, res in models.items()})
         plot_auc_curves(
             overall_aggregated,
             summary_dir / "figures" / "overall_avg_faithfulness.png",
@@ -580,6 +586,8 @@ Files:
     
     # Per-dataset confidence curves
     for dataset_name, curves_dict in dataset_conf_avg.items():
+        if not curves_dict:
+            continue
         plot_confidence_curves(
             curves_dict,
             step_fracs,
@@ -589,12 +597,15 @@ Files:
     
     # Overall confidence curves
     if overall_conf_avg:
-        plot_confidence_curves(
-            overall_conf_avg,
-            step_fracs,
-            summary_dir / "figures" / "overall_confidence_curves.png",
-            "GT Confidence vs Deletion Steps - Overall (Avg across all datasets & models)"
-        )
+        step_fracs_overall = overall_conf_avg.pop("step_fracs", [])
+        methods_with_data = [k for k in overall_conf_avg.keys() if k != "step_fracs"]
+        if methods_with_data and step_fracs_overall:
+            plot_confidence_curves(
+                overall_conf_avg,
+                step_fracs_overall,
+                summary_dir / "figures" / "overall_confidence_curves.png",
+                "GT Confidence vs Deletion Steps - Overall (Avg across all datasets & models)"
+            )
 
     print("\n✓ Aggregation and comprehensive plotting complete")
 

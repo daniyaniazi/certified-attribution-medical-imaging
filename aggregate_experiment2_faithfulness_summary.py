@@ -327,12 +327,16 @@ def aggregate_confidence_curves(root: Path):
             step_fracs = conf_data.get("step_fracs", [])
             found_any = True
             
-            for method, k_dict in conf_data.items():
-                if method == "step_fracs":
-                    continue
-                for k_val, curve in k_dict.items():
-                    dataset_curves[dataset_name][method][k_val].append(curve)
-                    overall_curves[method][k_val].append(curve)
+            # Structure: {"step_fracs": [...], "k_values": {"50": {"methods": {...}}, ...}}
+            k_values_dict = conf_data.get("k_values", {})
+            for k_str, k_entry in k_values_dict.items():
+                k_val = int(k_str)
+                methods_dict = k_entry.get("methods", {})
+                for method, stats in methods_dict.items():
+                    mean_conf = stats.get("mean_conf", [])
+                    if mean_conf:
+                        dataset_curves[dataset_name][method][k_val].append(mean_conf)
+                        overall_curves[method][k_val].append(mean_conf)
         except Exception as e:
             print(f"[WARN] Failed to load confidence curves for {dataset_name}: {e}")
             continue
