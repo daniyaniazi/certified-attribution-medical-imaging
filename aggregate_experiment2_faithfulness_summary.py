@@ -524,6 +524,10 @@ Files:
     print("="*60)
     dataset_conf_avg, overall_conf_avg, step_fracs = aggregate_confidence_curves(root)
     
+    print(f"[DEBUG] Found {len(dataset_conf_avg)} datasets with confidence curves")
+    print(f"[DEBUG] overall_conf_avg keys: {list(overall_conf_avg.keys())}")
+    print(f"[DEBUG] step_fracs length: {len(step_fracs)}")
+    
     # Per-dataset confidence curves
     for dataset_name, curves_dict in dataset_conf_avg.items():
         if not curves_dict:
@@ -535,14 +539,18 @@ Files:
                               f"GT Confidence Curves ({dataset_name.upper()}, resnet18)")
     
     # Overall confidence curves
-    if overall_conf_avg and overall_conf_avg != {"step_fracs": []}:
-        step_fracs_overall = overall_conf_avg.pop("step_fracs", [])
-        if overall_conf_avg:  # Only plot if there are actual methods with data
-            plot_confidence_curves(overall_conf_avg, step_fracs_overall,
-                                  summary_dir / "figures" / "overall_confidence_curves.png",
-                                  "GT Confidence Curves (Overall, all datasets, resnet18)")
+    step_fracs_overall = overall_conf_avg.pop("step_fracs", [])
+    # Check if there are methods with data (not just step_fracs)
+    methods_with_data = [k for k in overall_conf_avg.keys() if k != "step_fracs"]
+    
+    if methods_with_data and step_fracs_overall:
+        print(f"[DEBUG] Plotting overall curves with methods: {methods_with_data}")
+        plot_confidence_curves(overall_conf_avg, step_fracs_overall,
+                              summary_dir / "figures" / "overall_confidence_curves.png",
+                              "GT Confidence Curves (Overall, all datasets, resnet18)")
     else:
-        print("[INFO] No confidence curves data available across all datasets")
+        print(f"[INFO] No confidence curves data available for overall plot")
+        print(f"[INFO] Methods found: {methods_with_data}, step_fracs: {len(step_fracs_overall)}")
 
     print("\n✓ Aggregation and comprehensive plotting complete")
 
