@@ -128,9 +128,10 @@ def main():
             continue
 
         # Load dataset
+        # IMPORTANT: Use 'val' split to match bulk certification (which certifies on val split)
         print(f"Loading dataset: {dataset}")
         try:
-            dataset_obj = get_dataset(dataset, split="test", data_dir=Path("data"))
+            dataset_obj = get_dataset(dataset, split="val", data_dir=Path("data"))
         except Exception as e:
             print(f"[WARN] Failed to load dataset {dataset}: {e}")
             continue
