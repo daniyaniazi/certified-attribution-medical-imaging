@@ -1,20 +1,24 @@
 {
   "per_dataset": {
     "fundus": {
-      "mean_auc": 0.12702523375596408,
+      "mean_auc": 0.13459847434344974,
       "total_images": 1500.0
     },
     "isic": {
-      "mean_auc": 0.020096118460150716,
+      "mean_auc": -0.010180894782079166,
       "total_images": 1570.0
     },
     "brain_mri": {
-      "mean_auc": -388.63228601644187,
+      "mean_auc": -462.2214506059727,
+      "total_images": 1500.0
+    },
+    "chestxray": {
+      "mean_auc": 0.0,
       "total_images": 1500.0
     }
   },
   "overall": {
-    "mean_auc": -127.51123419432089,
-    "total_images": 4570.0
+    "mean_auc": -114.19213545341873,
+    "total_images": 6070.0
   }
 }

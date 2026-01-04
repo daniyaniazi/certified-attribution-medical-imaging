@@ -1,102 +1,102 @@
 {
   "GradCAM": {
     "50": {
-      "mean_auc": -0.06215292223042272,
-      "std_auc": 0.1322933989029442,
+      "mean_auc": 0.4000001586637003,
+      "std_auc": 0.48989781900846563,
       "num_images": 5,
-      "mean_baseline_conf": 0.5908023535065255
+      "mean_baseline_conf": 0.5981525312162644
     },
     "25": {
-      "mean_auc": -0.06224763860382206,
-      "std_auc": 0.13224868849545396,
+      "mean_auc": 0.40000022930762835,
+      "std_auc": 0.4898977613279817,
       "num_images": 5,
-      "mean_baseline_conf": 0.5908023535065255
+      "mean_baseline_conf": 0.5981525312162644
     },
     "5": {
-      "mean_auc": -0.06067825111218818,
-      "std_auc": 0.1329297507227474,
+      "mean_auc": 0.4000000096243463,
+      "std_auc": 0.48989794069839077,
       "num_images": 5,
-      "mean_baseline_conf": 0.5908023535065255
+      "mean_baseline_conf": 0.5981525312162644
     }
   },
   "IntegratedGradients": {
     "50": {
-      "mean_auc": -0.44269867809632074,
-      "std_auc": 0.6674629455516798,
+      "mean_auc": 0.400000011999066,
+      "std_auc": 0.4898979387594397,
       "num_images": 5,
-      "mean_baseline_conf": 0.5908023535065255
+      "mean_baseline_conf": 0.5981525312162644
     },
     "25": {
-      "mean_auc": 0.012958182513838673,
-      "std_auc": 0.025957372880418723,
+      "mean_auc": 0.2,
+      "std_auc": 0.4000000000000001,
       "num_images": 5,
-      "mean_baseline_conf": 0.5908023535065255
+      "mean_baseline_conf": 0.5981525312162644
     },
     "5": {
       "mean_auc": 0.0,
       "std_auc": 0.0,
       "num_images": 5,
-      "mean_baseline_conf": 0.5908023535065255
+      "mean_baseline_conf": 0.5981525312162644
     }
   },
   "LRP": {
     "50": {
-      "mean_auc": -0.3858410836658368,
-      "std_auc": 0.4941746981338493,
+      "mean_auc": 0.4000002879775838,
+      "std_auc": 0.4898977134242052,
       "num_images": 5,
-      "mean_baseline_conf": 0.5908023535065255
+      "mean_baseline_conf": 0.5981525312162644
     },
     "25": {
-      "mean_auc": -0.4216084786553355,
-      "std_auc": 0.5465924229420653,
+      "mean_auc": 0.40000029157730366,
+      "std_auc": 0.4898977104850534,
       "num_images": 5,
-      "mean_baseline_conf": 0.5908023535065255
+      "mean_baseline_conf": 0.5981525312162644
     },
     "5": {
-      "mean_auc": 0.0017436235919144924,
-      "std_auc": 0.003766457700568599,
+      "mean_auc": 0.4,
+      "std_auc": 0.48989794855663565,
       "num_images": 5,
-      "mean_baseline_conf": 0.5908023535065255
+      "mean_baseline_conf": 0.5981525312162644
     }
   },
   "Occlusion": {
     "50": {
-      "mean_auc": -0.9684518424547542,
-      "std_auc": 1.3001371763611556,
+      "mean_auc": 0.39999986084847483,
+      "std_auc": 0.48989806217343634,
       "num_images": 5,
-      "mean_baseline_conf": 0.5908023535065255
+      "mean_baseline_conf": 0.5981525312162644
     },
     "25": {
-      "mean_auc": -0.6377993694099942,
-      "std_auc": 0.8618252058994605,
+      "mean_auc": 0.4000000000627339,
+      "std_auc": 0.489897948505415,
       "num_images": 5,
-      "mean_baseline_conf": 0.5908023535065255
+      "mean_baseline_conf": 0.5981525312162644
     },
     "5": {
-      "mean_auc": -0.4156903231883956,
-      "std_auc": 0.8762298098592863,
+      "mean_auc": 0.2,
+      "std_auc": 0.4000000000000001,
       "num_images": 5,
-      "mean_baseline_conf": 0.5908023535065255
+      "mean_baseline_conf": 0.5981525312162644
     }
   },
   "RISE": {
     "50": {
-      "mean_auc": 3.6743770661312974e-05,
-      "std_auc": 4.7118341597058005e-05,
+      "mean_auc": 0.4,
+      "std_auc": 0.48989794855663565,
       "num_images": 5,
-      "mean_baseline_conf": 0.5908023535065255
+      "mean_baseline_conf": 0.5981525312162644
     },
     "25": {
       "mean_auc": 0.0,
       "std_auc": 0.0,
       "num_images": 5,
-      "mean_baseline_conf": 0.5908023535065255
+      "mean_baseline_conf": 0.5981525312162644
     },
     "5": {
       "mean_auc": 0.0,
       "std_auc": 0.0,
       "num_images": 5,
-      "mean_baseline_conf": 0.5908023535065255
+      "mean_baseline_conf": 0.5981525312162644
     }
   }
 }

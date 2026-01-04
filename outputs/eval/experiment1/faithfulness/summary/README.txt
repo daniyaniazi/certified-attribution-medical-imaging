@@ -1,6 +1,6 @@
 Faithfulness summary
 
-This directory contains aggregated faithfulness metrics from outputs/experiment1/faithfulness.
+This directory contains aggregated faithfulness metrics from outputs/eval/experiment1/faithfulness.
 
 Fields:
 - mean_auc: weighted average of mean_auc across methods and K (weights = num_images per entry)

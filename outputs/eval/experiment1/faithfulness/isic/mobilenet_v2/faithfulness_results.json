@@ -1,102 +1,102 @@
 {
   "GradCAM": {
     "50": {
-      "mean_auc": -0.012486890675565786,
-      "std_auc": 0.34177259426582407,
+      "mean_auc": 0.09648749158514505,
+      "std_auc": 0.12612344830037836,
       "num_images": 5,
-      "mean_baseline_conf": 0.20384780898457394
+      "mean_baseline_conf": 0.3777461612924526
     },
     "25": {
-      "mean_auc": -0.032791683192561386,
-      "std_auc": 0.20108267603100483,
+      "mean_auc": 0.036197368695772614,
+      "std_auc": 0.07230504510373983,
       "num_images": 5,
-      "mean_baseline_conf": 0.20384780898457394
+      "mean_baseline_conf": 0.3777461612924526
     },
     "5": {
-      "mean_auc": 0.07093401937494116,
-      "std_auc": 0.19274104470307776,
+      "mean_auc": 0.05150150532400122,
+      "std_auc": 0.11988311988126234,
       "num_images": 5,
-      "mean_baseline_conf": 0.20384780898457394
+      "mean_baseline_conf": 0.3777461612924526
     }
   },
   "IntegratedGradients": {
     "50": {
-      "mean_auc": 0.12304791061020603,
-      "std_auc": 0.25863220416001026,
+      "mean_auc": 0.10621256807078094,
+      "std_auc": 0.2774711789172116,
       "num_images": 5,
-      "mean_baseline_conf": 0.20384780898457394
+      "mean_baseline_conf": 0.3777461612924526
     },
     "25": {
-      "mean_auc": 0.13084988586078003,
-      "std_auc": 0.2850695135989382,
+      "mean_auc": 0.1345964530780866,
+      "std_auc": 0.28448107195404615,
       "num_images": 5,
-      "mean_baseline_conf": 0.20384780898457394
+      "mean_baseline_conf": 0.3777461612924526
     },
     "5": {
       "mean_auc": 0.0,
       "std_auc": 0.0,
       "num_images": 5,
-      "mean_baseline_conf": 0.20384780898457394
+      "mean_baseline_conf": 0.3777461612924526
     }
   },
   "LRP": {
     "50": {
-      "mean_auc": 0.12144153771764268,
-      "std_auc": 0.429200121081035,
+      "mean_auc": 0.21955038145458605,
+      "std_auc": 0.2982237255318634,
       "num_images": 5,
-      "mean_baseline_conf": 0.20384780898457394
+      "mean_baseline_conf": 0.3777461612924526
     },
     "25": {
-      "mean_auc": 0.10883785433334761,
-      "std_auc": 0.24333111910483157,
+      "mean_auc": 0.13079471974879378,
+      "std_auc": 0.23771156759780646,
       "num_images": 5,
-      "mean_baseline_conf": 0.20384780898457394
+      "mean_baseline_conf": 0.3777461612924526
     },
     "5": {
-      "mean_auc": 0.1280901456593178,
-      "std_auc": 0.2647687440366734,
+      "mean_auc": 0.09832739556999197,
+      "std_auc": 0.21401529117037366,
       "num_images": 5,
-      "mean_baseline_conf": 0.20384780898457394
+      "mean_baseline_conf": 0.3777461612924526
     }
   },
   "Occlusion": {
     "50": {
-      "mean_auc": -0.10418839424016073,
-      "std_auc": 0.9528044394804291,
+      "mean_auc": 0.22267850285844126,
+      "std_auc": 0.3136334040768768,
       "num_images": 5,
-      "mean_baseline_conf": 0.20384780898457394
+      "mean_baseline_conf": 0.3777461612924526
     },
     "25": {
-      "mean_auc": 0.05970773615806809,
-      "std_auc": 0.4560983177073689,
+      "mean_auc": 0.16475175488471866,
+      "std_auc": 0.2990812291482791,
       "num_images": 5,
-      "mean_baseline_conf": 0.20384780898457394
+      "mean_baseline_conf": 0.3777461612924526
     },
     "5": {
-      "mean_auc": 0.12319901340518649,
-      "std_auc": 0.12588173179891635,
+      "mean_auc": 0.09640861658197357,
+      "std_auc": 0.1602766124450666,
       "num_images": 5,
-      "mean_baseline_conf": 0.20384780898457394
+      "mean_baseline_conf": 0.3777461612924526
     }
   },
   "RISE": {
     "50": {
-      "mean_auc": 0.06113969569670935,
-      "std_auc": 0.12228142698240226,
+      "mean_auc": 0.024504313937876155,
+      "std_auc": 0.04448164140494111,
       "num_images": 5,
-      "mean_baseline_conf": 0.20384780898457394
+      "mean_baseline_conf": 0.3777461612924526
     },
     "25": {
-      "mean_auc": -0.0015999675272316872,
-      "std_auc": 0.0031984576563491756,
+      "mean_auc": -0.004398915716114482,
+      "std_auc": 0.011393708782375648,
       "num_images": 5,
-      "mean_baseline_conf": 0.20384780898457394
+      "mean_baseline_conf": 0.3777461612924526
     },
     "5": {
       "mean_auc": 0.0,
       "std_auc": 0.0,
       "num_images": 5,
-      "mean_baseline_conf": 0.20384780898457394
+      "mean_baseline_conf": 0.3777461612924526
     }
   }
 }

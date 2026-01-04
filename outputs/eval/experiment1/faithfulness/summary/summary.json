@@ -1,98 +1,90 @@
 {
   "per_dataset": {
     "fundus": {
-      "mean_auc": -0.05566081341557069,
+      "mean_auc": 0.0734643921465388,
       "total_images": 300.0
     },
     "chestxray": {
-      "mean_auc": 0.0016287027763306529,
+      "mean_auc": -0.0006946927553982252,
       "total_images": 300.0
     },
     "isic": {
-      "mean_auc": -0.24634197229571148,
+      "mean_auc": -0.2610291090971104,
       "total_images": 300.0
     },
     "brain_mri": {
-      "mean_auc": -1399646704.4404116,
+      "mean_auc": -119.77402385147818,
       "total_images": 300.0
     }
   },
   "per_model": {
-    "fundus": {
-      "densenet121": {
-        "mean_auc": 0.0007151780868845447,
-        "total_images": 75.0
-      },
-      "efficientnet_b1": {
-        "mean_auc": 2.2252403368839026e-09,
-        "total_images": 75.0
-      },
-      "resnet18": {
-        "mean_auc": -0.22949533583604373,
-        "total_images": 75.0
-      },
-      "mobilenet_v2": {
-        "mean_auc": 0.006136901861636076,
-        "total_images": 75.0
-      }
+    "fundus/densenet121": {
+      "mean_auc": -1.7345954989404313e-08,
+      "total_images": 75.0
     },
-    "chestxray": {
-      "efficientnet_b1": {
-        "mean_auc": 0.0065148111053226114,
-        "total_images": 75.0
-      },
-      "mobilenet_v2": {
-        "mean_auc": 0.0,
-        "total_images": 75.0
-      },
-      "densenet121": {
-        "mean_auc": 0.0,
-        "total_images": 75.0
-      },
-      "resnet18": {
-        "mean_auc": 0.0,
-        "total_images": 75.0
-      }
+    "fundus/efficientnet_b1": {
+      "mean_auc": 0.0,
+      "total_images": 75.0
     },
-    "isic": {
-      "densenet121": {
-        "mean_auc": -0.6942856927784927,
-        "total_images": 75.0
-      },
-      "resnet18": {
-        "mean_auc": -0.22718940049001507,
-        "total_images": 75.0
-      },
-      "mobilenet_v2": {
-        "mean_auc": 0.05174539087871196,
-        "total_images": 75.0
-      },
-      "efficientnet_b1": {
-        "mean_auc": -0.1156381867930502,
-        "total_images": 75.0
-      }
+    "fundus/resnet18": {
+      "mean_auc": 0.29333339000405584,
+      "total_images": 75.0
     },
-    "brain_mri": {
-      "mobilenet_v2": {
-        "mean_auc": -386.9099828200065,
-        "total_images": 75.0
-      },
-      "resnet18": {
-        "mean_auc": -13.65143340740317,
-        "total_images": 75.0
-      },
-      "densenet121": {
-        "mean_auc": -5598586368.76874,
-        "total_images": 75.0
-      },
-      "efficientnet_b1": {
-        "mean_auc": -48.43149067100852,
-        "total_images": 75.0
-      }
+    "fundus/mobilenet_v2": {
+      "mean_auc": 0.0005241959280543599,
+      "total_images": 75.0
+    },
+    "chestxray/efficientnet_b1": {
+      "mean_auc": -0.002778771021592901,
+      "total_images": 75.0
+    },
+    "chestxray/mobilenet_v2": {
+      "mean_auc": 0.0,
+      "total_images": 75.0
+    },
+    "chestxray/densenet121": {
+      "mean_auc": 0.0,
+      "total_images": 75.0
+    },
+    "chestxray/resnet18": {
+      "mean_auc": 0.0,
+      "total_images": 75.0
+    },
+    "isic/densenet121": {
+      "mean_auc": 0.022318876145671764,
+      "total_images": 75.0
+    },
+    "isic/resnet18": {
+      "mean_auc": -1.0150041770954255,
+      "total_images": 75.0
+    },
+    "isic/mobilenet_v2": {
+      "mean_auc": 0.09184081040493691,
+      "total_images": 75.0
+    },
+    "isic/efficientnet_b1": {
+      "mean_auc": -0.14327194584362485,
+      "total_images": 75.0
+    },
+    "brain_mri/mobilenet_v2": {
+      "mean_auc": 0.1751925033324812,
+      "total_images": 75.0
+    },
+    "brain_mri/resnet18": {
+      "mean_auc": -440.03628214928983,
+      "total_images": 75.0
+    },
+    "brain_mri/densenet121": {
+      "mean_auc": -4.290374975277571,
+      "total_images": 75.0
+    },
+    "brain_mri/efficientnet_b1": {
+      "mean_auc": -34.94463078467781,
+      "total_images": 75.0
     }
   },
   "overall": {
-    "mean_auc": -349911676.18519646,
+    "mean_auc": -29.99057081529604,
     "total_images": 1200.0
   }
 }

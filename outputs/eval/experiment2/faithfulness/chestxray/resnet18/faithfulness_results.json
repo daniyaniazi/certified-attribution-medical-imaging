@@ -3,19 +3,19 @@
     "50": {
       "mean_auc": 0.0,
       "std_auc": 0.0,
-      "num_images": 5,
+      "num_images": 100,
       "mean_baseline_conf": 1.0
     },
     "25": {
       "mean_auc": 0.0,
       "std_auc": 0.0,
-      "num_images": 5,
+      "num_images": 100,
       "mean_baseline_conf": 1.0
     },
     "5": {
       "mean_auc": 0.0,
       "std_auc": 0.0,
-      "num_images": 5,
+      "num_images": 100,
       "mean_baseline_conf": 1.0
     }
   },
@@ -23,19 +23,19 @@
     "50": {
       "mean_auc": 0.0,
       "std_auc": 0.0,
-      "num_images": 5,
+      "num_images": 100,
       "mean_baseline_conf": 1.0
     },
     "25": {
       "mean_auc": 0.0,
       "std_auc": 0.0,
-      "num_images": 5,
+      "num_images": 100,
       "mean_baseline_conf": 1.0
     },
     "5": {
       "mean_auc": 0.0,
       "std_auc": 0.0,
-      "num_images": 5,
+      "num_images": 100,
       "mean_baseline_conf": 1.0
     }
   },
@@ -43,19 +43,19 @@
     "50": {
       "mean_auc": 0.0,
       "std_auc": 0.0,
-      "num_images": 5,
+      "num_images": 100,
       "mean_baseline_conf": 1.0
     },
     "25": {
       "mean_auc": 0.0,
       "std_auc": 0.0,
-      "num_images": 5,
+      "num_images": 100,
       "mean_baseline_conf": 1.0
     },
     "5": {
       "mean_auc": 0.0,
       "std_auc": 0.0,
-      "num_images": 5,
+      "num_images": 100,
       "mean_baseline_conf": 1.0
     }
   },
@@ -63,19 +63,19 @@
     "50": {
       "mean_auc": 0.0,
       "std_auc": 0.0,
-      "num_images": 5,
+      "num_images": 100,
       "mean_baseline_conf": 1.0
     },
     "25": {
       "mean_auc": 0.0,
       "std_auc": 0.0,
-      "num_images": 5,
+      "num_images": 100,
       "mean_baseline_conf": 1.0
     },
     "5": {
       "mean_auc": 0.0,
       "std_auc": 0.0,
-      "num_images": 5,
+      "num_images": 100,
       "mean_baseline_conf": 1.0
     }
   },
@@ -83,19 +83,19 @@
     "50": {
       "mean_auc": 0.0,
       "std_auc": 0.0,
-      "num_images": 5,
+      "num_images": 100,
       "mean_baseline_conf": 1.0
     },
     "25": {
       "mean_auc": 0.0,
       "std_auc": 0.0,
-      "num_images": 5,
+      "num_images": 100,
       "mean_baseline_conf": 1.0
     },
     "5": {
       "mean_auc": 0.0,
       "std_auc": 0.0,
-      "num_images": 5,
+      "num_images": 100,
       "mean_baseline_conf": 1.0
     }
   }
