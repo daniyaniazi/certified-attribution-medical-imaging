@@ -1,0 +1,27 @@
+# HTCondor Submission File for Debug Chestxray Certification Pickle
+# Runs in docker container (CPU only)
+
+universe                = docker
+docker_image            = nvidia/cuda:12.1.0-runtime-ubuntu22.04
+initialdir              = /home/exml_team007/certified-attribution-medical-imaging
+executable              = execute_debug_chestxray.sh
+transfer_input_files    = execute_debug_chestxray.sh, debug_chestxray_cert.py
+
+arguments               = 
+
+environment             = "PROJECT_ROOT=/home/exml_team007/certified-attribution-medical-imaging CONDA_PYTHON_BINARY_PATH=/home/exml_team007/miniconda3/envs/certified-attribution-medical-imaging/bin/python"
+
+output                  = /home/exml_team007/condor_logs/debug_chestxray.$(ClusterId).$(ProcId).out
+error                   = /home/exml_team007/condor_logs/debug_chestxray.$(ClusterId).$(ProcId).err
+log                     = /home/exml_team007/condor_logs/debug_chestxray.$(ClusterId).log
+
+should_transfer_files   = YES
+when_to_transfer_output = ON_EXIT
+
+request_GPUs  = 0
+request_CPUs  = 1
+request_memory = 4G
+request_disk   = 5G
+requirements = UidDomain == "cs.uni-saarland.de"
++WantGPUHomeMounted = true
+queue 1
