@@ -1,0 +1,4 @@
+dataset,model,mean_auc,total_images
+brain_mri,resnet18,-388.63228601644187,1500.0
+fundus,resnet18,0.12702523375596408,1500.0
+isic,resnet18,0.020096118460150716,1570.0
