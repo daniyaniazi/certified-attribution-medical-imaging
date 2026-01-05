@@ -7,7 +7,7 @@ initialdir              = /home/exml_team007/certified-attribution-medical-imagi
 executable              = bulk_certify_grid_isic.sh
 transfer_input_files    = bulk_certify_grid_isic.sh, certify_grid_isic_server.py, run_bulk_certify_grid_isic.py
 
-arguments               = --grid_pt /home/exml_team007/certified-attribution-medical-imaging/data/raw/grid/isic/val/grid.pt --checkpoint /home/exml_team007/certified-attribution-medical-imaging/outputs/checkpoints/isic/resnet18/final_model.pt --output_base /home/exml_team007/certified-attribution-medical-imaging/outputs/bulk_certifcation/grid/isic/resnet18 --num_samples 100 --batch_size 16 --sigma 0.15 --tau 0.75 --alpha 0.001 --k_percents 50 25 5
+arguments               = --grid_pt /home/exml_team007/certified-attribution-medical-imaging/data/raw/grid/isic/val/grid.pt --checkpoint /home/exml_team007/certified-attribution-medical-imaging/outputs/checkpoints/isic/resnet18/final_model.pt --output_base /home/exml_team007/certified-attribution-medical-imaging/outputs/bulk_certifcation/grid_2/isic/resnet18 --num_samples 100 --batch_size 16 --sigma 0.15 --tau 0.75 --alpha 0.001 --k_percents 50 25 5
 
 environment             = "PROJECT_ROOT=/home/exml_team007/certified-attribution-medical-imaging CONDA_PYTHON_BINARY_PATH=/home/exml_team007/miniconda3/envs/certified-attribution-medical-imaging/bin/python"
 
