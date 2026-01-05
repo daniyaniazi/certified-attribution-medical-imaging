@@ -360,7 +360,7 @@ def parse_args():
     p.add_argument("--k_percents", type=int, nargs="+", default=[50, 25, 5])
     p.add_argument("--save_dir", default=str(ROOT / "outputs" / "certifications" / "grid_isic"))
     p.add_argument("--heatmap_dir", default=str(ROOT / "outputs" / "bulk_certifcation" / "grid" / "isic" / "resnet18" / "certified_maps"))
-    p.add_argument("--panel_examples", type=int, default=3, help="Number of images to generate paper-style panels for")
+    p.add_argument("--panel_examples", type=int, default=20, help="Number of images to generate paper-style panels for")
     p.add_argument("--save_noisy_samples", action="store_true")
     p.add_argument("--max_noisy_samples", type=int, default=3)
     return p.parse_args()
