@@ -21,7 +21,7 @@ def get_default_paths():
         "script": project_root / "certify_grid_isic_server.py",
         "checkpoint": project_root / "outputs" / "checkpoints" / "isic" / "resnet18" / "final_model.pt",
         "data_root": project_root / "data" / "raw" / "grid" / "isic",
-        "output_base": project_root / "outputs" / "bulk_certifcation" / "grid" / "isic" / "resnet18",
+        "output_base": project_root / "outputs" / "bulk_certifcation" / "grid" / "isic_2" / "resnet18",
     }
 
 def parse_args():

@@ -1,176 +1,80 @@
-"""
-README: Certified Pixel Attribution for Medical Imaging
+# Certified Attribution for Medical Imaging
 
-This project implements certified pixel attribution on medical images.
-Based on research paper approach using randomized smoothing + sparsification.
+Certified pixel-level explanations for medical images using sparsification and randomized smoothing, plus an ISIC-specific grid (patch-level) certification mode. Precomputed figures for robustness and faithfulness are included in `outputs/`.
 
-## Quick Start
+## Highlights
 
-1. Install dependencies:
+- Pixel-level certification across Brain MRI, Chest X-ray, Fundus (APTOS), and ISIC.
+- **Grid-based ISIC certification implements true DiFull** (paper's approach): cells are processed separately through the backbone for full disconnection.
+- Unified attribution backends: Integrated Gradients, Grad-CAM, RISE, Occlusion, LRP.
+- Precomputed evaluation plots and paper-style panels ready for reports.
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+## Setup
 
-2. Prepare data:
+1. Create an environment (Python 3.10+):
+   - `pip install -r requirements.txt`
+   - or `conda env create -f environment.yml`
+2. Place data under `data/raw/<dataset>/{train,val,test}` as expected by the dataset loaders.
+3. (Optional) Precompute grids for ISIC with your own `grid.pt` using the utilities in `src/datasets`.
 
-   - CheXpert: Download from https://stanfordmlgroup.github.io/competitions/chexpert/
-   - ISIC: Download from https://www.isic-archive.com/
-   - APTOS: Download from Kaggle competition
+## Train (ISIC example)
 
-3. Run training:
-
-   ```bash
-   python src/experiments/run_train.py --config configs/chexpert.yaml --model resnet18
-   ```
-
-4. Generate attributions:
-
-   ```bash
-   python src/experiments/run_attribution.py --checkpoint outputs/checkpoints/best_model.pt --method integrated_gradients
-   ```
-
-5. Certify attributions:
-
-   ```bash
-   python src/experiments/run_certify.py --checkpoint outputs/checkpoints/best_model.pt --sigma 0.15 --num_samples 100
-   ```
-
-6. Evaluate:
-   ```bash
-   python src/experiments/run_eval.py --checkpoint outputs/checkpoints/best_model.pt
-   ```
-
-## Project Structure
+Train multiple backbones on ISIC:
 
 ```
-certified-attribution-medical-imaging/
-├── README.md
-├── requirements.txt
-├── configs/
-│   ├── defaults.py          # Default hyperparameters
-│   ├── chexpert.yaml        # CheXpert config
-│   ├── isic.yaml            # ISIC config
-│   └── aptos.yaml           # APTOS config
-├── data/
-│   ├── raw/                 # Download datasets here
-│   └── processed/           # Processed datasets
-├── src/
-│   ├── datasets/
-│   │   ├── base.py          # Base dataset class
-│   │   ├── chexpert.py      # CheXpert loader
-│   │   ├── isic.py          # ISIC loader
-│   │   └── aptos.py         # APTOS loader
-│   ├── models/
-│   │   └── factory.py       # Model factory (ResNet, DenseNet, etc.)
-│   ├── train/
-│   │   ├── train_one.py     # Training loop
-│   │   ├── evaluate.py      # Evaluation functions
-│   │   └── metrics.py       # Metric computation
-│   ├── xai/
-│   │   ├── attribution.py   # Attribution methods (IG, Grad-CAM, RISE, Occlusion)
-│   │   └── utils.py         # XAI utilities
-│   ├── certify/
-│   │   ├── sparsify.py      # Sparsification
-│   │   ├── smoothing.py     # Randomized smoothing
-│   │   └── evaluate.py      # Certification evaluation
-│   ├── experiments/
-│   │   ├── run_train.py     # Training script
-│   │   ├── run_attribution.py  # Attribution generation
-│   │   ├── run_certify.py   # Certification script
-│   │   └── run_eval.py      # Evaluation script
-│   └── utils/
-│       ├── seed.py          # Reproducibility
-│       ├── io.py            # I/O utilities
-│       └── viz.py           # Visualization
-└── outputs/
-    ├── checkpoints/         # Model checkpoints
-    ├── attributions_raw/    # Non-certified attributions
-    ├── attributions_certified/ # Certified attributions
-    └── reports/             # Evaluation reports
-
+python train_isic_server.py --models resnet18 resnet50 densenet121 \
+    --epochs 50 --batch_size 32 --data_root data/raw/isic \
+    --checkpoint_dir outputs/checkpoints/isic
 ```
 
-## Core Concepts
+## Certify pixel-level (single-head)
 
-### 1. Attribution Methods
-
-- **Integrated Gradients (IG)**: Gradient-based method integrating from baseline
-- **Grad-CAM**: Class activation mapping using gradients
-- **RISE**: Randomized input sampling for explanation
-- **Occlusion**: Perturbation-based method
-
-### 2. Certification Pipeline
-
-1. **Sparsification**: Keep only top-K% pixels from attribution
-2. **Randomized Smoothing**: Add Gaussian noise N(0, σ²I) and recompute attributions
-3. **Aggregation**: Majority voting per pixel across noisy samples
-4. **Threshold**: Certify pixels where confidence > τ
-
-### 3. Evaluation Metrics
-
-- **Faithfulness (Deletion AUC)**: Model confidence drop when deleting important pixels
-- **Localization (IoU)**: Overlap with ground truth masks (where available)
-- **Robustness (%Certified)**: Percentage of pixels with certification
-
-## Hyperparameters
-
-Key certification hyperparameters (from paper):
-
-- `sigma`: Gaussian noise std (default: 0.15)
-- `tau`: Certification threshold (default: 0.75)
-- `num_samples`: Number of smoothing samples (default: 100)
-- `K`: Sparsification percentiles (default: [50, 30, 10])
-- `alpha`: Significance level (default: 0.001)
-
-## Example: End-to-End Workflow
-
-```python
-from src.models.factory import get_model
-from src.datasets.chexpert import CheXpertDataset
-from src.train.train_one import Trainer
-from src.xai.attribution import IntegratedGradients
-from src.certify.smoothing import RandomizedSmoothingAttributor
-from src.certify.sparsify import sparsify_topk
-from src.certify.evaluate import CertificationEvaluator
-
-# 1. Load model
-model, config = get_model('resnet18', num_classes=2)
-
-# 2. Load data
-dataset = CheXpertDataset(split='test')
-
-# 3. Create attribution method
-ig = IntegratedGradients(model)
-
-# 4. Create smoother
-smoother = RandomizedSmoothingAttributor(model, ig.attribute)
-
-# 5. Certify single image
-image = dataset[0]['image']  # [C, H, W]
-attr = ig.attribute(image, target_class=1)
-sparse_attr = sparsify_topk(attr, k_percent=30)
-certified, votes, pct_cert = smoother.certify(
-    image, sparse_attr, target_class=1,
-    sigma=0.15, num_samples=100, tau=0.75
-)
-
-# 6. Evaluate
-evaluator = CertificationEvaluator()
-metrics = evaluator.evaluate_certified(certified, votes, num_samples=100)
-print(f"Certified: {metrics['pct_certified']:.1f}%")
-```
-
-## Citation
-
-If you use this code, please cite the original paper:
+Certify ISIC attributions with randomized smoothing:
 
 ```
-@article{...
-}
+python certify_isic_server.py \
+    --checkpoint outputs/checkpoints/isic/resnet18/best.pt \
+    --sigma 0.15 --num_samples 100 --tau 0.75 --k_percents 50 25 5 \
+    --device cuda
 ```
 
-## License
+Artifacts are written under `outputs/certifications/isic/` (paper-style panels and Figure 4-style grids).
 
-MIT License
-"""
+## Certify grid-based ISIC (patch-level, DiFull)
+
+True DiFull implementation following the paper: each grid cell is processed **separately** through the backbone, ensuring cells are fully disconnected. Attribution is computed w.r.t. the full grid image, but only the target cell influences the model output. This provides ground truth "possible vs impossible" regions for localization evaluation.
+
+```
+python certify_grid_isic_server.py \\
+    --grid_pt data/processed/isic/grid.pt \\
+    --checkpoint outputs/checkpoints/isic/resnet18/best.pt \\
+    --sigma 0.15 --num_samples 100 --tau 0.75 --k_percents 50 25 5 \\
+    --save_dir outputs/certifications/grid_isic \\
+    --heatmap_dir outputs/certifications/grid_isic/panels
+```
+
+## Precomputed results (quick links)
+
+- Certified panels: `outputs/certifications/isic/resnet18_img0_paper_style.png`
+- Robustness summary (Experiment 2): `outputs/eval/experiment2/robustness/summary/figures/summary_mean_pct_certified.png`
+- Faithfulness summary (Experiment 2): `outputs/eval/experiment2/faithfulness/summary/figures/overall_confidence_curves.png`
+
+## Visual preview
+
+![ISIC certified panel (ResNet-18)](outputs/certifications/isic/resnet18_img0_paper_style.png)
+
+![Robustness summary (Experiment 2)](outputs/eval/experiment2/robustness/summary/figures/summary_mean_pct_certified.png)
+
+![Faithfulness summary (Experiment 2)](outputs/eval/experiment2/faithfulness/summary/figures/overall_confidence_curves.png)
+
+## Troubleshooting
+
+- **DiFull grid certification**: Each cell is now processed separately through the backbone (true disconnection per paper). Attribution is computed over the full grid, but only the target cell can influence the output.
+- For CUDA memory errors, lower `--batch_size` or `--num_samples` during certification.
+- Data missing errors: verify `data/raw/<dataset>/<split>/images` and labels files expected by the dataset loader (see `src/datasets`).
+
+## Repository structure (essentials)
+
+- `src/` core code: `datasets/`, `models/`, `train/`, `certify/`, `xai/`
+- Top-level scripts: `train_isic_server.py`, `certify_isic_server.py`, `certify_grid_isic_server.py`
+- Outputs: `outputs/certifications/` (panels), `outputs/eval/experiment1|2/` (plots and summaries)
