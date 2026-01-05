@@ -5,7 +5,7 @@ Certified pixel-level explanations for medical images using sparsification and r
 ## Highlights
 
 - Pixel-level certification across Brain MRI, Chest X-ray, Fundus (APTOS), and ISIC.
-- Grid-based ISIC certification now masks to the selected cell so off-cell pixels are not certified.
+- **Grid-based ISIC certification implements true DiFull** (paper's approach): cells are processed separately through the backbone for full disconnection.
 - Unified attribution backends: Integrated Gradients, Grad-CAM, RISE, Occlusion, LRP.
 - Precomputed evaluation plots and paper-style panels ready for reports.
 
@@ -40,16 +40,16 @@ python certify_isic_server.py \
 
 Artifacts are written under `outputs/certifications/isic/` (paper-style panels and Figure 4-style grids).
 
-## Certify grid-based ISIC (patch-level)
+## Certify grid-based ISIC (patch-level, DiFull)
 
-Masking fix: only the target grid cell contributes votes, so pixels outside the selected cell will not be certified.
+True DiFull implementation following the paper: each grid cell is processed **separately** through the backbone, ensuring cells are fully disconnected. Attribution is computed w.r.t. the full grid image, but only the target cell influences the model output. This provides ground truth "possible vs impossible" regions for localization evaluation.
 
 ```
-python certify_grid_isic_server.py \
-    --grid_pt data/processed/isic/grid.pt \
-    --checkpoint outputs/checkpoints/isic/resnet18/best.pt \
-    --sigma 0.15 --num_samples 100 --tau 0.75 --k_percents 50 25 5 \
-    --save_dir outputs/certifications/grid_isic \
+python certify_grid_isic_server.py \\
+    --grid_pt data/processed/isic/grid.pt \\
+    --checkpoint outputs/checkpoints/isic/resnet18/best.pt \\
+    --sigma 0.15 --num_samples 100 --tau 0.75 --k_percents 50 25 5 \\
+    --save_dir outputs/certifications/grid_isic \\
     --heatmap_dir outputs/certifications/grid_isic/panels
 ```
 
@@ -69,7 +69,7 @@ python certify_grid_isic_server.py \
 
 ## Troubleshooting
 
-- If grid certification shows pixels lit up outside the intended cell, rerun with the updated `certify_grid_isic_server.py` (masking is applied per cell). Ensure `--grid_pt` was generated with the correct `target_cell` and `scale`.
+- **DiFull grid certification**: Each cell is now processed separately through the backbone (true disconnection per paper). Attribution is computed over the full grid, but only the target cell can influence the output.
 - For CUDA memory errors, lower `--batch_size` or `--num_samples` during certification.
 - Data missing errors: verify `data/raw/<dataset>/<split>/images` and labels files expected by the dataset loader (see `src/datasets`).
 

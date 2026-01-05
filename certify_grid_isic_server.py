@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import numpy as np
@@ -291,18 +292,50 @@ def get_resnet_target_layer(model: GridMultiHead):
     raise ValueError("Could not find target layer for GradCAM")
 
 
-class HeadWrapper(nn.Module):
-    def __init__(self, grid_model: GridMultiHead, head_id: int):
+class DiFull_Wrapper(nn.Module):
+    """DiFull-style wrapper: processes only the target cell through the backbone.
+    
+    This implements the paper's DiFull approach where each cell is passed separately
+    through the backbone, ensuring true disconnection between cells. The wrapper
+    extracts the target cell from the full grid, processes it independently, and
+    applies only the corresponding head.
+    """
+    def __init__(self, grid_model: GridMultiHead, head_id: int, target_cell: int, scale: int):
         super().__init__()
         self.grid_model = grid_model
         self.head_id = head_id
+        self.target_cell = target_cell
+        self.scale = scale
 
     def forward(self, x: torch.Tensor):
-        return self.grid_model(x, head_id=self.head_id)
+        """Forward pass with DiFull disconnection.
+        
+        Args:
+            x: [B, C, H*scale, W*scale] - full grid image
+        Returns:
+            [B, num_classes] - logits for target cell only
+        """
+        B, C, full_H, full_W = x.shape
+        cell_H = full_H // self.scale
+        cell_W = full_W // self.scale
+        
+        # Extract only the target cell (DiFull disconnection)
+        row = self.target_cell // self.scale
+        col = self.target_cell % self.scale
+        cell = x[:, :, row*cell_H:(row+1)*cell_H, col*cell_W:(col+1)*cell_W]
+        
+        # Pass only this cell through the backbone
+        features = self.grid_model.feature_extractor(cell)
+        
+        # Apply the corresponding head
+        logits = self.grid_model.heads[self.head_id](features)
+        
+        return logits
 
 
-def build_attr_methods(grid_model: GridMultiHead, device: str, head_id: int):
-    wrapper = HeadWrapper(grid_model, head_id)
+def build_attr_methods(grid_model: GridMultiHead, device: str, head_id: int, target_cell: int, scale: int):
+    """Build attribution methods with DiFull wrapper for true cell disconnection."""
+    wrapper = DiFull_Wrapper(grid_model, head_id, target_cell, scale)
     target_layer = get_resnet_target_layer(grid_model)
     return {
         "GradCAM": GradCAMUnified(wrapper, target_layer, device),
@@ -370,20 +403,25 @@ def main():
     all_images_for_fig4 = []
     panel_count = 0
     
-    for batch_idx, sample in enumerate(tqdm(loader, desc="Certifying grids")):
+    for batch_idx, sample in enumerate(tqdm(loader, desc="Certifying grids (DiFull)")):
         image = sample["image"].to(device)
         target_class = int(sample["target_class"].item())
         head_id = int(sample["target_head"].item())
+        target_cell = int(sample["target_head"].item())  # same as head_id in our case
         scale = int(sample["meta"]["scale"].item()) if isinstance(sample["meta"], dict) and "scale" in sample["meta"] else grid_ds.scale
 
-        methods = build_attr_methods(model, device, head_id)
+        # DiFull: cells are truly disconnected via separate forward passes in the wrapper
+        # No manual masking needed - the wrapper extracts and processes only the target cell
+        methods = build_attr_methods(model, device, head_id, target_cell, scale)
         smoother = RandomizedSmoothingAttributor(model, None, device=device)
 
-        # Build attribution wrappers that ignore target_class override
+        # Build attribution wrappers
         def make_attr_wrapper(attr_obj):
             def _fn(img, target_class_override=None):
                 tc = target_class if target_class_override is None else int(target_class_override)
-                return attr_obj.attribute(img, target_class=tc)
+                # Attribution is computed w.r.t. full grid, but forward pass only processes target cell
+                heat = attr_obj.attribute(img, target_class=tc)
+                return heat
             return _fn
 
         method_results_map = {}
