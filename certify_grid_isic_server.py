@@ -293,57 +293,30 @@ def get_resnet_target_layer(model: GridMultiHead):
 
 
 class DiFull_Wrapper(nn.Module):
-    """True DiFull implementation: Extract target cell, process independently, compute attribution on full grid.
-    
-    Implements the paper's DiFull approach:
-    - Forward: Extract target cell from full grid, process ONLY that cell through backbone
-    - Backward: Gradients computed naturally through extraction operation
-    - Result: Attribution heatmap shows what parts of the full grid influence the target cell,
-             but other cells are disconnected from affecting the prediction
+    """Head-specific wrapper that defers cropping to GridMultiHead.
+
+    GridMultiHead now performs the DiFull crop internally, so this wrapper only selects
+    which head to use for attribution while still accepting the full grid input.
     """
-    def __init__(self, grid_model: GridMultiHead, head_id: int, target_cell: int, scale: int):
+
+    def __init__(self, grid_model: GridMultiHead, head_id: int):
         super().__init__()
         self.grid_model = grid_model
         self.head_id = head_id
-        self.target_cell = target_cell
-        self.scale = scale
-        self.row = target_cell // scale
-        self.col = target_cell % scale
 
     def forward(self, x: torch.Tensor):
-        """Forward: Extract and process only target cell independently.
-        
-        Args:
-            x: [B, C, H*scale, W*scale] - full grid image
-        Returns:
-            [B, num_classes] - logits for target cell only
-        """
-        B, C, full_H, full_W = x.shape
-        cell_H = full_H // self.scale
-        cell_W = full_W // self.scale
-        
-        y0, y1 = self.row * cell_H, (self.row + 1) * cell_H
-        x0, x1 = self.col * cell_W, (self.col + 1) * cell_W
-        
-        # Extract target cell - this naturally blocks information from other cells
-        cell = x[:, :, y0:y1, x0:x1]
-        
-        # Process ONLY the target cell through backbone and head
-        # Other cells are completely disconnected from the computation
-        features = self.grid_model.feature_extractor(cell)
-        logits = self.grid_model.heads[self.head_id](features)
-        
-        return logits
+        """Forward full grid; GridMultiHead crops the correct cell internally."""
+        return self.grid_model(x, head_id=self.head_id)
 
 
-def build_attr_methods(grid_model: GridMultiHead, device: str, head_id: int, target_cell: int, scale: int):
+def build_attr_methods(grid_model: GridMultiHead, device: str, head_id: int):
     """Build attribution methods for full-grid attribution w.r.t. target cell logits.
     
     Computes attribution across the full grid image, showing which parts contribute
     to the target cell's decision. Attribution naturally concentrates in target cell
     due to model architecture, without manual masking.
     """
-    wrapper = DiFull_Wrapper(grid_model, head_id, target_cell, scale)
+    wrapper = DiFull_Wrapper(grid_model, head_id)
     target_layer = get_resnet_target_layer(grid_model)
     return {
         "GradCAM": GradCAMUnified(wrapper, target_layer, device),
@@ -374,8 +347,14 @@ def parse_args():
     return p.parse_args()
 
 
-def load_model(num_heads: int, num_classes: int, device: str, checkpoint: str = None) -> GridMultiHead:
-    model = GridMultiHead("resnet18", num_classes=num_classes, num_heads=num_heads, pretrained=(checkpoint is None))
+def load_model(num_heads: int, num_classes: int, device: str, checkpoint: str = None, scale: int = 2) -> GridMultiHead:
+    model = GridMultiHead(
+        "resnet18",
+        num_classes=num_classes,
+        num_heads=num_heads,
+        pretrained=(checkpoint is None),
+        scale=scale,
+    )
     if checkpoint:
         state = torch.load(checkpoint, map_location=device)
         if isinstance(state, dict) and "state_dict" in state:
@@ -400,7 +379,13 @@ def main():
     loader = DataLoader(grid_ds, batch_size=1, shuffle=False)
 
     # Model
-    model = load_model(num_heads=num_heads, num_classes=args.num_classes, device=device, checkpoint=args.checkpoint)
+    model = load_model(
+        num_heads=num_heads,
+        num_classes=args.num_classes,
+        device=device,
+        checkpoint=args.checkpoint,
+        scale=grid_ds.scale,
+    )
 
     save_dir = Path(args.save_dir)
     heatmap_dir = Path(args.heatmap_dir)
@@ -418,10 +403,12 @@ def main():
         target_cell = int(sample["target_head"].item())  # same as head_id in our case
         scale = int(sample["meta"]["scale"].item()) if isinstance(sample["meta"], dict) and "scale" in sample["meta"] else grid_ds.scale
 
-        # DiFull: cells are truly disconnected via separate forward passes in the wrapper
-        # No manual masking needed - the wrapper extracts and processes only the target cell
-        methods = build_attr_methods(model, device, head_id, target_cell, scale)
-        smoother = RandomizedSmoothingAttributor(model, None, device=device)
+        # DiFull: cells are truly disconnected via internal crops in GridMultiHead
+        methods = build_attr_methods(model, device, head_id)
+        
+        # IMPORTANT: Smoother should NOT use the original model, 
+        # it only needs the attribution functions (model is wrapped inside methods)
+        smoother = RandomizedSmoothingAttributor(None, None, device=device)
 
         # Build attribution wrappers
         def make_attr_wrapper(attr_obj):
@@ -454,7 +441,7 @@ def main():
                     "label": target_class,
                     "head_id": head_id,
                     "scale": scale,
-                    "target_cell": grid_ds.target_cell,
+                    "target_cell": target_cell,
                     "results": res,
                 })
                 

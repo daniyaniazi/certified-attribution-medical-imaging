@@ -31,12 +31,20 @@ class ResNetFeatureExtractor(nn.Module):
 
 
 class GridMultiHead(nn.Module):
+    """Multi-head grid model with per-cell disconnection (DiFull-style).
+
+    Forward crops the requested cell before running the shared backbone so each head
+    can only depend on its own cell. When head_id is None, logits for all cells are
+    returned, each computed from its corresponding crop.
+    """
+
     def __init__(
         self,
         backbone_name: str = "resnet18",
         num_classes: int = 8,
         num_heads: int = 4,
         pretrained: bool = True,
+        scale: int = 2,
     ):
         super().__init__()
         backbone_name = backbone_name.lower()
@@ -52,12 +60,32 @@ class GridMultiHead(nn.Module):
         ])
         self.num_heads = num_heads
         self.num_classes = num_classes
+        self.scale = scale
+
+    def _crop_cell(self, x: torch.Tensor, cell_id: int) -> torch.Tensor:
+        """Extract a single cell from the full grid tensor."""
+        b, c, full_h, full_w = x.shape
+        cell_h = full_h // self.scale
+        cell_w = full_w // self.scale
+        row = cell_id // self.scale
+        col = cell_id % self.scale
+        y0, y1 = row * cell_h, (row + 1) * cell_h
+        x0, x1 = col * cell_w, (col + 1) * cell_w
+        return x[:, :, y0:y1, x0:x1]
 
     def forward(self, x: torch.Tensor, head_id: Optional[int] = None):
-        feats = self.feature_extractor(x)
-        if head_id is None:
-            return torch.stack([head(feats) for head in self.heads], dim=1)  # [B, K, C]
-        return self.heads[head_id](feats)  # [B, C]
+        if head_id is not None:
+            cell = self._crop_cell(x, head_id)
+            feats = self.feature_extractor(cell)
+            return self.heads[head_id](feats)  # [B, C]
+
+        # All heads
+        logits = []
+        for i, head in enumerate(self.heads):
+            cell = self._crop_cell(x, i)
+            feats = self.feature_extractor(cell)
+            logits.append(head(feats))
+        return torch.stack(logits, dim=1)  # [B, K, C]
 
     def freeze_backbone(self):
         for p in self.feature_extractor.parameters():
