@@ -153,6 +153,12 @@ class GradCAMUnified(AttributionMethod):
             import torch.nn.functional as F
             cam = F.relu(cam)
             
+            # Upsample to match input image size
+            input_h, input_w = image.shape[-2:]
+            cam = cam.unsqueeze(0).unsqueeze(0)  # [1, 1, H_feat, W_feat]
+            cam = F.interpolate(cam, size=(input_h, input_w), mode='bilinear', align_corners=False)
+            cam = cam.squeeze(0).squeeze(0)
+            
             cam_np = cam.cpu().numpy()
         
         # Clear references to allow garbage collection
