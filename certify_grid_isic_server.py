@@ -293,12 +293,12 @@ def get_resnet_target_layer(model: GridMultiHead):
 
 
 class DiFull_Wrapper(nn.Module):
-    """DiFull-style wrapper: processes only the target cell through the backbone.
+    """DiFull-style wrapper with gradient masking for true cell disconnection.
     
-    This implements the paper's DiFull approach where each cell is passed separately
-    through the backbone, ensuring true disconnection between cells. The wrapper
-    extracts the target cell from the full grid, processes it independently, and
-    applies only the corresponding head.
+    This implements the paper's DiFull approach:
+    - Forward: extracts and processes only the target cell
+    - Backward: gradients computed w.r.t. full grid, but naturally zero outside target cell
+    - Result: attribution maps are full-grid-sized with zeros outside target cell
     """
     def __init__(self, grid_model: GridMultiHead, head_id: int, target_cell: int, scale: int):
         super().__init__()
@@ -306,12 +306,14 @@ class DiFull_Wrapper(nn.Module):
         self.head_id = head_id
         self.target_cell = target_cell
         self.scale = scale
+        self.row = target_cell // scale
+        self.col = target_cell % scale
 
     def forward(self, x: torch.Tensor):
-        """Forward pass with DiFull disconnection.
+        """Forward with DiFull disconnection via custom gradient masking.
         
         Args:
-            x: [B, C, H*scale, W*scale] - full grid image
+            x: [B, C, H*scale, W*scale] - full grid image (for gradient computation)
         Returns:
             [B, num_classes] - logits for target cell only
         """
@@ -319,15 +321,34 @@ class DiFull_Wrapper(nn.Module):
         cell_H = full_H // self.scale
         cell_W = full_W // self.scale
         
-        # Extract only the target cell (DiFull disconnection)
-        row = self.target_cell // self.scale
-        col = self.target_cell % self.scale
-        cell = x[:, :, row*cell_H:(row+1)*cell_H, col*cell_W:(col+1)*cell_W]
+        # Compute cell boundaries
+        y0, y1 = self.row * cell_H, (self.row + 1) * cell_H
+        x0, x1 = self.col * cell_W, (self.col + 1) * cell_W
         
-        # Pass only this cell through the backbone
+        # Custom autograd function to mask gradients
+        class CellExtractor(torch.autograd.Function):
+            @staticmethod
+            def forward(ctx, input_grid, y0, y1, x0, x1):
+                ctx.save_for_backward(torch.tensor([y0, y1, x0, x1]))
+                ctx.grid_shape = input_grid.shape
+                # Extract cell for forward pass
+                return input_grid[:, :, y0:y1, x0:x1].contiguous()
+            
+            @staticmethod
+            def backward(ctx, grad_output):
+                bounds, = ctx.saved_tensors
+                y0, y1, x0, x1 = bounds.tolist()
+                # Create full-grid gradient (zeros everywhere)
+                grad_input = torch.zeros(ctx.grid_shape, dtype=grad_output.dtype, device=grad_output.device)
+                # Place cell gradients in correct location
+                grad_input[:, :, y0:y1, x0:x1] = grad_output
+                return grad_input, None, None, None, None
+        
+        # Extract cell with gradient routing
+        cell = CellExtractor.apply(x, y0, y1, x0, x1)
+        
+        # Process cell through backbone and head
         features = self.grid_model.feature_extractor(cell)
-        
-        # Apply the corresponding head
         logits = self.grid_model.heads[self.head_id](features)
         
         return logits
