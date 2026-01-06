@@ -297,10 +297,9 @@ class DiFull_Wrapper(nn.Module):
     
     Implements the paper's DiFull approach:
     - Forward: Extract target cell from full grid, process ONLY that cell through backbone
-    - Backward: Gradients computed on full grid input (for attribution visualization), 
-               but only target cell's features influence the decision (true disconnection)
+    - Backward: Gradients computed naturally through extraction operation
     - Result: Attribution heatmap shows what parts of the full grid influence the target cell,
-             but other cells' information is blocked from affecting the prediction
+             but other cells are disconnected from affecting the prediction
     """
     def __init__(self, grid_model: GridMultiHead, head_id: int, target_cell: int, scale: int):
         super().__init__()
@@ -326,73 +325,15 @@ class DiFull_Wrapper(nn.Module):
         y0, y1 = self.row * cell_H, (self.row + 1) * cell_H
         x0, x1 = self.col * cell_W, (self.col + 1) * cell_W
         
-        # Use custom autograd to properly route gradients
-        return CellExtractorAutograd.apply(
-            x, y0, y1, x0, x1, 
-            self.grid_model.feature_extractor, 
-            self.grid_model.heads[self.head_id]
-        )
-
-
-class CellExtractorAutograd(torch.autograd.Function):
-    """Custom autograd function for DiFull: extract cell forward, route gradients back to full grid."""
-    
-    @staticmethod
-    def forward(ctx, grid, y0, y1, x0, x1, backbone, head):
-        """
-        Extract target cell, process through backbone and head independently.
+        # Extract target cell - this naturally blocks information from other cells
+        cell = x[:, :, y0:y1, x0:x1]
         
-        Args:
-            grid: [B, C, H, W] - full grid image
-            y0, y1, x0, x1: cell boundaries
-            backbone: feature extractor
-            head: classification head
-        Returns:
-            logits: [B, num_classes] for target cell
-        """
-        # Extract cell (disconnects from other cells)
-        cell = grid[:, :, y0:y1, x0:x1].detach().clone().requires_grad_(True)
+        # Process ONLY the target cell through backbone and head
+        # Other cells are completely disconnected from the computation
+        features = self.grid_model.feature_extractor(cell)
+        logits = self.grid_model.heads[self.head_id](features)
         
-        # Process cell independently through backbone and head
-        features = backbone(cell)
-        logits = head(features)
-        
-        # Save for backward
-        ctx.save_for_backward(grid, cell, features, logits)
-        ctx.y0, ctx.y1, ctx.x0, ctx.x1 = y0, y1, x0, x1
-        ctx.backbone = backbone
-        ctx.head = head
-        ctx.grid_shape = grid.shape
-        
-        return logits.detach().requires_grad_(True)
-    
-    @staticmethod
-    def backward(ctx, grad_output):
-        """
-        Compute gradients w.r.t. full grid, but only target cell features contribute.
-        
-        This achieves true disconnection: gradients are computed on full grid input
-        (for attribution visualization), but other cells have zero contribution.
-        """
-        grid, cell, features, logits = ctx.saved_tensors
-        y0, y1, x0, x1 = ctx.y0, ctx.y1, ctx.x0, ctx.x1
-        backbone = ctx.backbone
-        head = ctx.head
-        
-        # Recompute forward with gradients enabled
-        cell_input = grid[:, :, y0:y1, x0:x1].clone().requires_grad_(True)
-        features = backbone(cell_input)
-        logits = head(features)
-        
-        # Backpropagate to get gradients w.r.t. cell input
-        logits.backward(grad_output, retain_graph=True)
-        grad_cell = cell_input.grad
-        
-        # Place cell gradients in full grid, zeros everywhere else
-        grad_grid = torch.zeros_like(grid)
-        grad_grid[:, :, y0:y1, x0:x1] = grad_cell
-        
-        return grad_grid, None, None, None, None, None, None
+        return logits
 
 
 def build_attr_methods(grid_model: GridMultiHead, device: str, head_id: int, target_cell: int, scale: int):
