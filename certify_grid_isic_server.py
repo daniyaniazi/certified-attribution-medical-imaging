@@ -381,7 +381,7 @@ def parse_args():
     p.add_argument("--k_percents", type=int, nargs="+", default=[50, 25, 5])
     p.add_argument("--save_dir", default=str(ROOT / "outputs" / "certifications" / "grid_isic"))
     p.add_argument("--heatmap_dir", default=str(ROOT / "outputs" / "bulk_certifcation" / "grid" / "isic" / "resnet18" / "certified_maps"))
-    p.add_argument("--panel_examples", type=int, default=20, help="Number of images to generate paper-style panels for")
+    p.add_argument("--panel_examples", type=int, default=-1, help="Number of images to generate paper-style panels for (-1 for all)")
     p.add_argument("--save_noisy_samples", action="store_true")
     p.add_argument("--max_noisy_samples", type=int, default=3)
     return p.parse_args()
@@ -477,8 +477,8 @@ def main():
                 # Collect for method_results_map
                 method_results_map.setdefault(mname, {})[k] = res
         
-        # Generate paper-style panel for first N images
-        if panel_count < args.panel_examples:
+        # Generate paper-style panel (all images if panel_examples=-1)
+        if args.panel_examples < 0 or panel_count < args.panel_examples:
             panel_path = generate_paper_panel_all_methods(
                 heatmap_dir / "panels", "resnet18", batch_idx, image, method_results_map
             )
