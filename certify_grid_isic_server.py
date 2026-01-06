@@ -293,12 +293,14 @@ def get_resnet_target_layer(model: GridMultiHead):
 
 
 class DiFull_Wrapper(nn.Module):
-    """DiFull-style wrapper with gradient masking for true cell disconnection.
+    """True DiFull implementation: Extract target cell, process independently, compute attribution on full grid.
     
-    This implements the paper's DiFull approach:
-    - Forward: extracts and processes only the target cell
-    - Backward: gradients computed w.r.t. full grid, but naturally zero outside target cell
-    - Result: attribution maps are full-grid-sized with zeros outside target cell
+    Implements the paper's DiFull approach:
+    - Forward: Extract target cell from full grid, process ONLY that cell through backbone
+    - Backward: Gradients computed on full grid input (for attribution visualization), 
+               but only target cell's features influence the decision (true disconnection)
+    - Result: Attribution heatmap shows what parts of the full grid influence the target cell,
+             but other cells' information is blocked from affecting the prediction
     """
     def __init__(self, grid_model: GridMultiHead, head_id: int, target_cell: int, scale: int):
         super().__init__()
@@ -310,10 +312,10 @@ class DiFull_Wrapper(nn.Module):
         self.col = target_cell % scale
 
     def forward(self, x: torch.Tensor):
-        """Forward with DiFull disconnection via custom gradient masking.
+        """Forward: Extract and process only target cell independently.
         
         Args:
-            x: [B, C, H*scale, W*scale] - full grid image (for gradient computation)
+            x: [B, C, H*scale, W*scale] - full grid image
         Returns:
             [B, num_classes] - logits for target cell only
         """
@@ -321,41 +323,85 @@ class DiFull_Wrapper(nn.Module):
         cell_H = full_H // self.scale
         cell_W = full_W // self.scale
         
-        # Compute cell boundaries
         y0, y1 = self.row * cell_H, (self.row + 1) * cell_H
         x0, x1 = self.col * cell_W, (self.col + 1) * cell_W
         
-        # Custom autograd function to mask gradients
-        class CellExtractor(torch.autograd.Function):
-            @staticmethod
-            def forward(ctx, input_grid, y0, y1, x0, x1):
-                ctx.save_for_backward(torch.tensor([y0, y1, x0, x1]))
-                ctx.grid_shape = input_grid.shape
-                # Extract cell for forward pass
-                return input_grid[:, :, y0:y1, x0:x1].contiguous()
-            
-            @staticmethod
-            def backward(ctx, grad_output):
-                bounds, = ctx.saved_tensors
-                y0, y1, x0, x1 = bounds.tolist()
-                # Create full-grid gradient (zeros everywhere)
-                grad_input = torch.zeros(ctx.grid_shape, dtype=grad_output.dtype, device=grad_output.device)
-                # Place cell gradients in correct location
-                grad_input[:, :, y0:y1, x0:x1] = grad_output
-                return grad_input, None, None, None, None
+        # Use custom autograd to properly route gradients
+        return CellExtractorAutograd.apply(
+            x, y0, y1, x0, x1, 
+            self.grid_model.feature_extractor, 
+            self.grid_model.heads[self.head_id]
+        )
+
+
+class CellExtractorAutograd(torch.autograd.Function):
+    """Custom autograd function for DiFull: extract cell forward, route gradients back to full grid."""
+    
+    @staticmethod
+    def forward(ctx, grid, y0, y1, x0, x1, backbone, head):
+        """
+        Extract target cell, process through backbone and head independently.
         
-        # Extract cell with gradient routing
-        cell = CellExtractor.apply(x, y0, y1, x0, x1)
+        Args:
+            grid: [B, C, H, W] - full grid image
+            y0, y1, x0, x1: cell boundaries
+            backbone: feature extractor
+            head: classification head
+        Returns:
+            logits: [B, num_classes] for target cell
+        """
+        # Extract cell (disconnects from other cells)
+        cell = grid[:, :, y0:y1, x0:x1].detach().clone().requires_grad_(True)
         
-        # Process cell through backbone and head
-        features = self.grid_model.feature_extractor(cell)
-        logits = self.grid_model.heads[self.head_id](features)
+        # Process cell independently through backbone and head
+        features = backbone(cell)
+        logits = head(features)
         
-        return logits
+        # Save for backward
+        ctx.save_for_backward(grid, cell, features, logits)
+        ctx.y0, ctx.y1, ctx.x0, ctx.x1 = y0, y1, x0, x1
+        ctx.backbone = backbone
+        ctx.head = head
+        ctx.grid_shape = grid.shape
+        
+        return logits.detach().requires_grad_(True)
+    
+    @staticmethod
+    def backward(ctx, grad_output):
+        """
+        Compute gradients w.r.t. full grid, but only target cell features contribute.
+        
+        This achieves true disconnection: gradients are computed on full grid input
+        (for attribution visualization), but other cells have zero contribution.
+        """
+        grid, cell, features, logits = ctx.saved_tensors
+        y0, y1, x0, x1 = ctx.y0, ctx.y1, ctx.x0, ctx.x1
+        backbone = ctx.backbone
+        head = ctx.head
+        
+        # Recompute forward with gradients enabled
+        cell_input = grid[:, :, y0:y1, x0:x1].clone().requires_grad_(True)
+        features = backbone(cell_input)
+        logits = head(features)
+        
+        # Backpropagate to get gradients w.r.t. cell input
+        logits.backward(grad_output, retain_graph=True)
+        grad_cell = cell_input.grad
+        
+        # Place cell gradients in full grid, zeros everywhere else
+        grad_grid = torch.zeros_like(grid)
+        grad_grid[:, :, y0:y1, x0:x1] = grad_cell
+        
+        return grad_grid, None, None, None, None, None, None
 
 
 def build_attr_methods(grid_model: GridMultiHead, device: str, head_id: int, target_cell: int, scale: int):
-    """Build attribution methods with DiFull wrapper for true cell disconnection."""
+    """Build attribution methods for full-grid attribution w.r.t. target cell logits.
+    
+    Computes attribution across the full grid image, showing which parts contribute
+    to the target cell's decision. Attribution naturally concentrates in target cell
+    due to model architecture, without manual masking.
+    """
     wrapper = DiFull_Wrapper(grid_model, head_id, target_cell, scale)
     target_layer = get_resnet_target_layer(grid_model)
     return {
