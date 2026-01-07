@@ -293,10 +293,12 @@ def get_resnet_target_layer(model: GridMultiHead):
 
 
 class DiFull_Wrapper(nn.Module):
-    """Head-specific wrapper that defers cropping to GridMultiHead.
-
-    GridMultiHead now performs the DiFull crop internally, so this wrapper only selects
-    which head to use for attribution while still accepting the full grid input.
+    """DiFull wrapper: accepts full grid, model crops internally, gradients flow back naturally.
+    
+    For attribution: pass the FULL grid image, compute attribution for target class.
+    Since target class logits only depend on the target cell (via internal crop),
+    gradients naturally backflow only through that cell.
+    Result: attribution naturally localizes to target cell without manual masking.
     """
 
     def __init__(self, grid_model: GridMultiHead, head_id: int):
@@ -305,16 +307,20 @@ class DiFull_Wrapper(nn.Module):
         self.head_id = head_id
 
     def forward(self, x: torch.Tensor):
-        """Forward full grid; GridMultiHead crops the correct cell internally."""
+        """Forward full grid; GridMultiHead crops internally for forward pass.
+        Gradients backflow through full grid input, naturally localizing to target cell.
+        """
         return self.grid_model(x, head_id=self.head_id)
 
 
 def build_attr_methods(grid_model: GridMultiHead, device: str, head_id: int):
     """Build attribution methods for full-grid attribution w.r.t. target cell logits.
     
-    Computes attribution across the full grid image, showing which parts contribute
-    to the target cell's decision. Attribution naturally concentrates in target cell
-    due to model architecture, without manual masking.
+    Attribution is computed on the FULL grid image. Since the target class logits
+    only depend on the target cell (via internal DiFull cropping), gradients naturally
+    backflow only through the target cell, causing attribution to naturally localize there.
+    
+    This is the correct DiFull workflow: pass full image, let gradient flow determine localization.
     """
     wrapper = DiFull_Wrapper(grid_model, head_id)
     target_layer = get_resnet_target_layer(grid_model)
@@ -403,7 +409,9 @@ def main():
         target_cell = int(sample["target_head"].item())  # same as head_id in our case
         scale = int(sample["meta"]["scale"].item()) if isinstance(sample["meta"], dict) and "scale" in sample["meta"] else grid_ds.scale
 
-        # DiFull: cells are truly disconnected via internal crops in GridMultiHead
+        # DiFull: Pass FULL grid image to attribution methods.
+        # Model crops internally for forward pass, but gradients backflow through full grid.
+        # Result: attribution naturally localizes to target cell.
         methods = build_attr_methods(model, device, head_id)
         
         # IMPORTANT: Smoother should NOT use the original model, 
