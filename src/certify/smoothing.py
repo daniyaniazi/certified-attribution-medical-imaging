@@ -303,39 +303,32 @@ class RandomizedSmoothingAttributor:
         This naturally separates meaningful non-zero pixels from zero background.
         """
         h, w = heatmap.shape
-        n_pixels = h * w
-        k_count = max(1, int(np.ceil(n_pixels * k_percent / 100.0)))
-        
-        # Sort pixels in descending order
         flat = heatmap.flatten()
-        sorted_indices = np.argsort(-flat)  # Descending order
         
-        # Get the K-th largest value as threshold
-        if k_count < n_pixels:
-            threshold = flat[sorted_indices[k_count - 1]]
+        # CRITICAL FIX: Ignore zero/near-zero background (DiFull case)
+        # When most pixels are zero, ranking ALL pixels causes threshold=0
+        # and all pixels get marked as "1", destroying localization.
+        eps = 1e-8
+        valid_mask = flat > eps
+        
+        if valid_mask.sum() == 0:
+            # All zeros: no pixels should be marked
+            return np.zeros_like(heatmap, dtype=np.float32)
+        
+        # Rank only non-zero pixels
+        valid_values = flat[valid_mask]
+        k_count = max(1, int(np.ceil(len(valid_values) * k_percent / 100.0)))
+        
+        # Use partition for efficient K-th element (faster than full sort)
+        if k_count <= len(valid_values):
+            threshold = np.partition(valid_values, -k_count)[-k_count]
         else:
-            threshold = 0.0
+            # K% exceeds valid pixels: mark all valid pixels
+            threshold = valid_values.min()
         
-        # Create mask: mark top K pixels as "1"
-        mask = (heatmap >= threshold).astype(np.float32)
-        
-        # Handle ties at the threshold value: if more pixels equal threshold than needed,
-        # keep only the top K by index order
-        threshold_pixels = np.where(heatmap == threshold)
-        if len(threshold_pixels[0]) > 0:
-            threshold_count = (heatmap > threshold).sum()
-            tie_needed = k_count - threshold_count
-            if tie_needed > 0 and tie_needed < len(threshold_pixels[0]):
-                # Too many pixels at threshold; keep only some of them
-                tie_indices = list(zip(threshold_pixels[0], threshold_pixels[1]))
-                tie_indices = sorted(tie_indices)[:tie_needed]
-                mask_with_ties = np.zeros_like(mask)
-                mask_with_ties[heatmap > threshold] = 1
-                for i, j in tie_indices:
-                    mask_with_ties[i, j] = 1
-                mask = mask_with_ties
-        
-        return mask
+        # Mark pixels >= threshold AND above eps (exclude zeros)
+        mask = (heatmap >= threshold) & (heatmap > eps)
+        return mask.astype(np.float32)
     
     @staticmethod
     def compute_abstention_rate(certified_map: np.ndarray) -> float:

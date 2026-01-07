@@ -94,7 +94,10 @@ class IntegratedGradientsUnified(AttributionMethod):
         attribution = torch.sum(integrated_grads, dim=1)[0]
         attribution = attribution.abs().detach().cpu().numpy()
         
-        return self._normalize_attribution(attribution)
+        # CRITICAL: Do NOT normalize before certification
+        # Normalization destroys rank instability under noise
+        # Only normalize for visualization AFTER certification
+        return attribution.astype(np.float32)
 
 
 class GradCAMUnified(AttributionMethod):
@@ -165,7 +168,9 @@ class GradCAMUnified(AttributionMethod):
         self.feature_maps = None
         self.gradients = None
         
-        return self._normalize_attribution(cam_np)
+        # CRITICAL: Do NOT normalize before certification
+        # Normalization destroys rank instability under noise
+        return cam_np.astype(np.float32)
 
 
 class RISEUnified(AttributionMethod):
@@ -211,7 +216,10 @@ class RISEUnified(AttributionMethod):
         
         # Normalize by N * p as per RISE paper
         attribution = attribution / (num_samples * prob_include)
-        return self._normalize_attribution(attribution)
+        
+        # CRITICAL: Do NOT normalize before certification
+        # Normalization destroys rank instability under noise
+        return attribution.astype(np.float32)
 
 
 class OcclusionUnified(AttributionMethod):
@@ -273,7 +281,9 @@ class OcclusionUnified(AttributionMethod):
         )
         attribution = attribution_upsampled[0, 0].numpy()
         
-        return self._normalize_attribution(attribution)
+        # CRITICAL: Do NOT normalize before certification
+        # Normalization destroys rank instability under noise
+        return attribution.astype(np.float32)
 
 
 class LRPUnified(AttributionMethod):
