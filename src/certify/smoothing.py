@@ -17,7 +17,7 @@ import torch.nn.functional as F
 import numpy as np
 from scipy.special import ndtri  # For inverse CDF: Φ^(-1)
 from scipy.stats import beta as beta_dist  # Clopper-Pearson intervals
-from typing import Tuple, Callable, Dict
+from typing import Tuple, Callable, Dict, Optional
 from tqdm import tqdm
 import time
 
@@ -34,7 +34,7 @@ class RandomizedSmoothingAttributor:
     
     def __init__(
         self,
-        model: nn.Module,
+        model: Optional[nn.Module],
         attribution_func: Callable,
         device: str = 'cpu'
     ):
@@ -47,7 +47,8 @@ class RandomizedSmoothingAttributor:
         self.model = model
         self.attribution_func = attribution_func
         self.device = device
-        self.model.eval()
+        if self.model is not None:
+            self.model.eval()
     
     def certify(
         self,
