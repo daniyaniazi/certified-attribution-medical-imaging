@@ -293,34 +293,55 @@ def get_resnet_target_layer(model: GridMultiHead):
 
 
 class DiFull_Wrapper(nn.Module):
-    """DiFull wrapper: accepts full grid, model crops internally, gradients flow back naturally.
+    """DiFull wrapper for attribution: process FULL image through backbone, extract target cell features.
     
-    For attribution: pass the FULL grid image, compute attribution for target class.
-    Since target class logits only depend on the target cell (via internal crop),
-    gradients naturally backflow only through that cell.
-    Result: attribution naturally localizes to target cell without manual masking.
+    Key difference from training:
+    - Training: crop → backbone → logits (only target cell enters backbone)
+    - Attribution: full_image → backbone → extract_cell_features → logits (gradients flow to full image)
+    
+    This allows attribution to show:
+    - Primary influence from target cell (strong gradients)
+    - Possible influence from other cells (weak gradients, e.g., edge effects)
     """
 
     def __init__(self, grid_model: GridMultiHead, head_id: int):
         super().__init__()
         self.grid_model = grid_model
         self.head_id = head_id
+        self.scale = grid_model.scale
 
     def forward(self, x: torch.Tensor):
-        """Forward full grid; GridMultiHead crops internally for forward pass.
-        Gradients backflow through full grid input, naturally localizing to target cell.
+        """Process FULL grid through backbone, extract target cell features, apply head.
+        
+        Args:
+            x: Full grid image [B, C, H, W]
+        
+        Returns:
+            logits: [B, num_classes] for target cell
         """
-        return self.grid_model(x, head_id=self.head_id)
+        # Process FULL image through feature extractor
+        full_features = self.grid_model.feature_extractor(x)  # [B, feat_dim]
+        
+        # Apply target head to get logits
+        # NOTE: Since we used full image instead of cropped cell, the features represent
+        # the entire grid. This allows gradients to flow back to all cells.
+        # The model will learn to focus on the target cell region, but can also
+        # pick up context from neighboring cells if relevant.
+        logits = self.grid_model.heads[self.head_id](full_features)
+        
+        return logits
 
 
 def build_attr_methods(grid_model: GridMultiHead, device: str, head_id: int):
     """Build attribution methods for full-grid attribution w.r.t. target cell logits.
     
-    Attribution is computed on the FULL grid image. Since the target class logits
-    only depend on the target cell (via internal DiFull cropping), gradients naturally
-    backflow only through the target cell, causing attribution to naturally localize there.
+    CRITICAL: Attribution uses FULL image through backbone (not cropped).
+    This allows gradients to flow to all cells, showing:
+    - Strong influence from target cell (primary features)
+    - Weak influence from other cells (context/edge effects)
     
-    This is the correct DiFull workflow: pass full image, let gradient flow determine localization.
+    The wrapper processes full_image → backbone → logits, so attribution can see
+    which pixels in the ENTIRE grid affect the target cell's classification.
     """
     wrapper = DiFull_Wrapper(grid_model, head_id)
     target_layer = get_resnet_target_layer(grid_model)

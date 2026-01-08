@@ -40,7 +40,7 @@ def parse_args():
     p.add_argument("--tau", type=float, default=0.75, help="Certification threshold tau")
     p.add_argument("--alpha", type=float, default=0.001, help="Alpha parameter")
     p.add_argument("--k_percents", nargs="+", default=["50", "25", "5"], help="K percentages for certification")
-    p.add_argument("--panel_examples", type=int, default=3, help="Number of images to save full panels for")
+    p.add_argument("--panel_examples", type=int, default=20, help="Number of images to save full panels for")
     p.add_argument("--save_noisy", action="store_true", default=True, help="Save noisy samples")
     
     return p.parse_args()
