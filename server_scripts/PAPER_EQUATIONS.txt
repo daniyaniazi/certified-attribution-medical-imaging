@@ -1,0 +1,325 @@
+"""
+CERTIFIED PIXEL ATTRIBUTION - PAPER METHODOLOGY REFERENCE
+
+This document maps paper equations to implementation details.
+
+PAPER OVERVIEW
+==============
+
+Problem: Attribution methods h(x) are unstable to input perturbations
+Solution: Certify robustness via randomized smoothing + sparsification
+
+Key Contributions:
+1. Reformulate attribution as binary segmentation (Eq. 4)
+2. Apply randomized smoothing to certify segments (Eq. 5)
+3. Provide robustness radius guarantee (Eq. 7)
+
+EQUATIONS & CODE MAPPING
+========================
+
+Eq. (1): Classifier
+┌─────────────────────────────────────────────┐
+│ f: X → Y                                    │
+│ Maps image x to predicted class y_pred      │
+└─────────────────────────────────────────────┘
+  Code: src/models/factory.py
+  Usage: model, config = get_model('resnet18', num_classes=2)
+
+---
+
+Eq. (2): Attribution Method
+┌─────────────────────────────────────────────┐
+│ h(f, x, y) ∈ ℝ^{H×W}                       │
+│ Maps image x to heatmap showing importance  │
+│ of each pixel for predicting class y        │
+└─────────────────────────────────────────────┘
+  Code: src/xai/attribution_unified.py
+  Methods:
+    - IntegratedGradientsUnified
+    - GradCAMUnified
+    - RISEUnified
+    - OcclusionUnified
+  
+  All return: heatmap [H,W] ∈ [0,1]
+
+---
+
+Eq. (3): Base Heatmap
+┌─────────────────────────────────────────────┐
+│ heat(x) = h(f, x, argmax f(x))             │
+│ Attribution for predicted class             │
+└─────────────────────────────────────────────┘
+  Code: attribution_method.attribute(image, target_class=1)
+  Returns: [H,W] heatmap
+
+Example:
+  ig = IntegratedGradientsUnified(model)
+  heat = ig.attribute(image, target_class=1)  # → [H,W]
+
+---
+
+Eq. (4): Sparsification (Segmentation Reformulation)
+┌──────────────────────────────────────────────────────────────┐
+│ h_K(x) = Top-K(heat(x))                                      │
+│                                                              │
+│ Converts continuous heatmap to binary segmentation:         │
+│  - 1: important (in top K%)                                 │
+│  - 0: unimportant (not in top K%)                           │
+│                                                              │
+│ Key insight: Enables "majority voting" certification        │
+│ (can't vote on continuous values, need discrete labels)     │
+└──────────────────────────────────────────────────────────────┘
+
+Code: RandomizedSmoothingAttributor._sparsify_topk()
+  
+  Algorithm:
+    threshold = np.percentile(heat.flatten(), 100 - K)
+    mask = (heat >= threshold)  # Binary {0, 1}
+    return mask
+
+Example with K=30%:
+  heat = [0.1, 0.8, 0.2, 0.9, 0.3, ...]  (continuous)
+  threshold = 0.75 (top 30% value)
+  mask = [0,   1,   0,   1,   0,   ...]  (binary)
+
+---
+
+Eq. (5): Randomized Smoothing Certification
+┌───────────────────────────────────────────────────────────────────┐
+│ For image x and class y:                                         │
+│                                                                   │
+│ 1. Sample n times:                                              │
+│    For t=1..n:                                                  │
+│      ε_t ~ N(0, σ²I)                                           │
+│      x_t = x + ε_t  (add Gaussian noise)                       │
+│      heat_t = h(f, x_t)  (recompute attribution)               │
+│      mask_t = h_K(x_t)  (sparsify)                             │
+│                                                                 │
+│ 2. Estimate per-pixel probabilities:                           │
+│    p_1[i] = |{t: mask_t[i]=1}| / n                            │
+│    p_0[i] = 1 - p_1[i]                                         │
+│                                                                 │
+│    → P(h_K(x+ε) = 1) and P(h_K(x+ε) = 0)                     │
+│                                                                 │
+│ 3. Threshold-based certification:                              │
+│    If p_1[i] ≥ τ → cert[i] = 1  (certified important)         │
+│    Else if p_0[i] ≥ τ → cert[i] = 0  (certified unimportant)  │
+│    Else → cert[i] = ⊘  (abstain, uncertain)                   │
+│                                                                 │
+│ Output: cert[x] ∈ {-1, 0, 1}^{H×W}                             │
+└───────────────────────────────────────────────────────────────────┘
+
+Code: RandomizedSmoothingAttributor.certify()
+
+Key parameters:
+  σ (sigma): noise standard deviation (paper: 0.15)
+  τ (tau): certification threshold (paper: 0.75)
+  n (num_samples): number of samples (paper: 100)
+  K (k_percent): sparsification level (paper: 50%, 30%, 10%)
+
+Example:
+  results = smoother.certify(
+      image,
+      k_percent=30,
+      target_class=1,
+      sigma=0.15,
+      tau=0.75,
+      num_samples=100
+  )
+  
+  # Returns:
+  # - certified_map[i,j] ∈ {-1, 0, 1}
+  # - p_1[i,j] = probability estimate for class 1
+  # - p_0[i,j] = probability estimate for class 0
+
+Intuition:
+  A pixel is "certified as important" only if:
+  - In at least τ (e.g., 75%) of noisy samples,
+  - The pixel remains in the top K% important pixels
+
+---
+
+Eq. (6): Radius Bound (from Segmentation Smoothing)
+┌───────────────────────────────────────────────────────────────────┐
+│ From randomized smoothing theory (Cohen & Welling 2019):         │
+│                                                                   │
+│ For a certified pixel, there exists a radius R such that:        │
+│ if ||δ||_2 < R,  then the certification remains valid           │
+│                                                                   │
+│ Connection to our problem:                                       │
+│ - We certify binary segmentation (h_K)                          │
+│ - Segmentation smoothing provides radius guarantee              │
+│                                                                   │
+│ Radius depends on:                                               │
+│ - σ: larger σ → larger guarantee (more noise → stable)          │
+│ - τ: larger τ → smaller guarantee (stricter threshold)          │
+└───────────────────────────────────────────────────────────────────┘
+
+---
+
+Eq. (7): Certified Robustness Radius
+┌───────────────────────────────────────────────────────────────────┐
+│ R = σ · Φ^(-1)(τ)                                               │
+│                                                                   │
+│ Where:                                                           │
+│  σ: Gaussian noise std deviation                                │
+│  Φ^(-1): inverse normal CDF (quantile function)                │
+│  τ: certification threshold                                      │
+│                                                                   │
+│ Interpretation:                                                  │
+│  For any perturbation δ with ||δ||_2 < R:                      │
+│  - Certified pixels (cert[i] ≠ -1) keep same class              │
+│  - Guarantees robustness of attribution within ball of radius R │
+└───────────────────────────────────────────────────────────────────┘
+
+Code: scipy.special.ndtri() in smoothing.py
+
+  radius = sigma * ndtri(tau)
+
+Example calculations:
+  σ=0.15, τ=0.75:  R = 0.15 × Φ^(-1)(0.75) ≈ 0.15 × 0.674 ≈ 0.101
+  σ=0.15, τ=0.90:  R = 0.15 × Φ^(-1)(0.90) ≈ 0.15 × 1.282 ≈ 0.192
+  σ=0.20, τ=0.75:  R = 0.20 × Φ^(-1)(0.75) ≈ 0.20 × 0.674 ≈ 0.135
+
+Intuition:
+  Larger radius R means the certification is more robust
+  But requires either:
+  - Larger σ (more aggressive smoothing)
+  - Smaller τ (less strict certification)
+  Both reduce %certified
+
+ALGORITHM PSEUDOCODE
+====================
+
+Algorithm 1: Certify Pixel Attribution
+┌────────────────────────────────────────────────────────────────┐
+│ Input: x (image), h (attribution method), f (classifier)       │
+│        σ, τ, K, n (hyperparameters)                           │
+│ Output: cert ∈ {0,1,⊘}^{H×W}, p_1, p_0, R                    │
+│                                                                 │
+│ 1. Initialize: p_1 ← 0, p_0 ← 0                              │
+│                                                                 │
+│ 2. For t ← 1 to n:                                             │
+│      ε_t ~ N(0, σ²I)                                          │
+│      x_t ← clip(x + ε_t, [0,1])                               │
+│      heat_t ← h(f, x_t)                                        │
+│      mask_t ← TopK(heat_t, K%)                                │
+│      p_1 ← p_1 + mask_t / n                                    │
+│      p_0 ← p_0 + (1 - mask_t) / n                             │
+│                                                                 │
+│ 3. For each pixel i:                                           │
+│      If p_1[i] ≥ τ:   cert[i] ← 1                             │
+│      Else if p_0[i] ≥ τ:  cert[i] ← 0                         │
+│      Else:            cert[i] ← ⊘  (abstain)                  │
+│                                                                 │
+│ 4. R ← σ × Φ^(-1)(τ)                                          │
+│                                                                 │
+│ 5. Return cert, p_1, p_0, R                                    │
+└────────────────────────────────────────────────────────────────┘
+
+PAPER HYPERPARAMETERS
+====================
+
+Recommended values from paper (for consistency):
+
+  σ (sigma):         0.15
+  τ (tau):           0.75
+  n (num_samples):   100
+  K (k_percent):     [50, 30, 10]
+  α (alpha):         0.001
+
+Sensitivity analysis:
+
+  Varying σ:
+    σ ↑ → R ↑ (more robust) but fewer certified pixels
+    σ ↓ → R ↓ (less robust) but more certified pixels
+
+  Varying τ:
+    τ ↑ → stricter certification (fewer certified)
+    τ ↓ → looser certification (more certified)
+    Larger τ (0.9) → larger R but fewer certified
+    Smaller τ (0.6) → smaller R but more certified
+
+  Varying K:
+    K ↑ → less sparse (more pixels considered important)
+    K ↓ → more sparse (fewer important pixels)
+
+OUTPUTS FOR EACH IMAGE
+=====================
+
+1. base_heatmap: {sample_id}_attr.npy
+   Shape: [H, W]
+   Range: [0, 1]
+   Contains: continuous attribution scores
+
+2. certified_map: {sample_id}_certified_k{K}.npy
+   Shape: [H, W]
+   Values: {-1, 0, 1}
+   Meaning:  1 = certified important
+             0 = certified unimportant
+            -1 = abstain
+
+3. probability_maps: {sample_id}_p1_k{K}.npy, {sample_id}_p0_k{K}.npy
+   Shape: [H, W]
+   Range: [0, 1]
+   Contains: P(h_K(x+ε)=1) and P(h_K(x+ε)=0)
+
+4. metadata: results.json
+   Contains:
+     - certified_radius: R = σ·Φ^(-1)(τ)
+     - %certified: pixels with cert ≠ -1
+     - %abstained: pixels with cert = -1
+     - %certified_1: pixels certified as 1
+     - %certified_0: pixels certified as 0
+     - avg_confidence: mean p_1/p_0 for each class
+
+COMPUTATIONAL COMPLEXITY
+========================
+
+Per image:
+  - Base attribution: O(H×W) forward + backward passes
+  - Smoothing: O(n × (H×W)) forward passes
+  - Total: O(n × H×W)
+
+Typical configuration (paper):
+  n = 100 samples
+  H×W = 224×224 = 50,176 pixels
+  Total ≈ 5M forward passes per image
+
+Optimization strategies:
+  - Batch processing (batch_size parameter)
+  - GPU acceleration
+  - Reduce n if time-constrained (tradeoff: less reliable estimates)
+
+VALIDATION & VERIFICATION
+=========================
+
+To verify correct implementation:
+
+1. %Certified should increase with:
+   - Larger σ (more aggressive smoothing)
+   - Smaller τ (looser threshold)
+   - Smaller K (more sparse, easier to certify)
+
+2. Certified_radius should equal σ·Φ^(-1)(τ):
+   - Can be verified with scipy.special.ndtri()
+
+3. Probability estimates should satisfy:
+   - 0 ≤ p_1[i] ≤ 1
+   - p_0[i] = 1 - p_1[i]  (since binary)
+
+4. Certification decisions should be:
+   - Exclusive (each pixel certified to ≤ 1 class)
+   - Consistent (if p_1 ≥ τ then cert = 1, not 0 or abstain)
+
+NEXT STEPS
+==========
+
+1. Review full workflow: src/certify/PAPER_IMPLEMENTATION.py
+2. Check equation mappings above
+3. Run example: python example.py
+4. Train & certify your own images
+5. Analyze certified maps and robustness radius values
+"""
+
+print(__doc__)

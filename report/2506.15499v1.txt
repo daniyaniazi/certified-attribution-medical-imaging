@@ -1,0 +1,2268 @@
+Pixel-level Certified Explanations via Randomized Smoothing
+Pixel-level Certified Explanations via Randomized Smoothing
+butions between perturbed and clean inputs (Wang & Kong,
+2023; 2024; Dhurandhar et al., 2024; Levine et al., 2019;
+Liu et al., 2022; Chen et al., 2022). However, image-level
+bounds are too coarse, as they (i) fail to capture pixel-level
+robustness, (ii) lack visual interpretability as they only pro
+duce a single number, and (iii) can be disproportionately
+affected by a small non-robust subset of pixels.
+Weaddress this challenge and introduce the first certifica
+tion method that guarantees pixel-level robustness for any
+black-box attribution method, producing fine-grained, inter
+pretable certified attributions. Our key insight is to reframe
+attribution as a segmentation task by sparsifying the contin
+uous attribution maps into binary pixel-importance classes:
+“1” for the top K% most important pixels and “0” for the
+rest. This defines a sparsified attribution function, whose
+output we certify using Randomized Smoothing (Fischer
+et al., 2021; Anani et al., 2024), a framework that certifies
+high-dimensional outputs of segmentation models against
+ℓ2-norm input perturbations. Each pixel is certified as ei
+ther robustly important (“1”), robustly unimportant (“0”),
+or abstaining (“⊘”) if no guarantee can be given. Figure 1
+shows an example of certified attributions for three attribu
+tion methods at different sparsification levels K.
+Leveraging our certification framework, we comprehen
+sively compare 12 different attribution methods spanning
+backpropagation-based, activation-based, and perturbation
+based methods on 5 different ImageNet classifiers, including
+CNNs (e.g., ResNet-152) and transformer (ViT-B/16) archi
+tectures. Leveraging our pixel-wise certificates, we create
+the first certified attribution maps, highlighting image pix
+els that are robustly influential for predictions (Figures 1
+to 4). For quantitative evaluations, we propose three metrics
+that measure desirable properties of certified attributions:
+(i) the percentage of certified pixels (%certified), measur
+ing the attribution method’s robustness, (ii) Certified Grid
+Pointing Game (Certified GridPG), an extension of GridPG
+(Bohle et al., 2021) that measures robust localization by
+computing the percentage of correctly localized and certi
+f
+ied attributions, and (iii) a deletion-based faithfulness score
+that measures the confidence drop when progressively re
+moving the pixels with top K% certified attributions. Our
+experiments show significant differences between methods
+in all four dimensions, with LRP and RISE demonstrating
+the best trade-offs between certified robustness, localization,
+faithfulness, and meaningful visual attributions.
+Contributions To summarize, our contributions are: (i)
+We introduce the first pixel-level certification framework
+for any black-box attribution method, providing rigorous
+robustness guarantees under ℓ2-bounded perturbations (Sec
+tion 4), (ii) We present three certified evaluation metrics:
+%certified to assess robustness, Certified GridPG for ro
+bust localization, and a deletion-based score for evaluating
+faithfulness (Section 5), (iii) We create the first certified
+attribution maps that can be used in downstream tasks (Sec
+tions 7.1), (iv) We analyze trade-offs across robustness,
+localization, and faithfulness of 12 attribution methods on 5
+ImageNet models, including CNNs and transformers, show
+ing that LRP and RISE strike the best balance, offering
+actionable insights into trustworhty and reliable attribution
+(Sections 7.2, 7.3, 7.4, 7.5).
+2. Related Work
+Machinelearning explainability Post-hoc attribution meth
+ods produce maps that show which pixels in an input image
+are important to a classifier’s output. Attribution meth
+ods fall into three categories: (i) backpropagation-based,
+which typically use gradients with respect to the input (Si
+monyan, 2014; Springenberg et al., 2014; Sundararajan
+et al., 2017; Shrikumar et al., 2017), (ii) activation-based,
+which weigh activation maps to determine the importance of
+pixels in relation to the network’s final layer (Selvaraju et al.,
+2017; Chattopadhay et al., 2018; Ramaswamy et al., 2020;
+Jiang et al., 2021), and (iii) perturbation-based, which per
+turb the input differently (e.g. via occlusions or masking) to
+observe changes in the network output (Dabkowski & Gal,
+2017; Fong & Vedaldi, 2017; Petsiuk et al., 2018b; Ribeiro
+et al., 2016; Zeiler, 2014).
+Gradient (Grad) (Simonyan, 2014), one of the earliest
+backpropagation-based methods, generates saliency maps
+by computing input gradients. Guided Backpropagation
+(GB) (Springenberg et al., 2014) refines this by retaining
+only positive gradients, while Integrated Gradients (IntGrad)
+(Sundararajan et al., 2017) accumulates gradients along a
+path from a reference baseline to reduce gradient noise. In
+put × Gradient (IxG) (Shrikumar et al., 2017) multiplies the
+input with its gradient to highlight pixel importance. Layer
+wise Relevance Propagation (LRP) (Bach et al., 2015), in
+contrast, redistributes the network’s output relevance back
+ward through the layers using a set of propagation rules,
+ensuring conservation of relevance while highlighting fea
+tures that contribute most to the model’s decision.
+Among activation-based methods, Class Activation Map
+ping (CAM) (Zhou et al., 2016) projects class-specific
+weights onto the final convolutional feature maps to pro
+duce coarse localization. Grad-CAM (Selvaraju et al.,
+2017) uses gradients and feature maps for coarse class
+discriminative localization, while Grad-CAM++ (Chattopad
+hay et al., 2018) extends it for finer details. Ablation-CAM
+(Ramaswamy et al., 2020) removes neurons to assess their
+impact on the input, and Layer-CAM (Jiang et al., 2021)
+uses intermediate layers for multi-depth localization.
+Occlusion (Zeiler & Fergus, 2014) slides a mask over the in
+put, measuring output changes to identify important regions.
+2
+Pixel-level Certified Explanations via Randomized Smoothing
+RISE (Petsiuk et al., 2018b) applies random masks, evalu
+ates output changes, and aggregates them into a weighted
+saliency map.
+In our experiments, we certify all 12 previously discussed
+attribution methods which span all three categories.
+Robustness issues A common problem of attribution meth
+ods is that they are not robust to small changes in the in
+put. Many attack vectors exist, including adversarial inputs,
+model manipulations, backdoor attacks, and data poison
+ing (Baniecki & Biecek, 2024). In this work, we focus on
+small, imperceptible changes to the input that change the
+explanation while the model prediction remains unaffected.
+That is, for a model f, attribution method hf, and input
+x, f(x) = f(x′) but hf(x) ̸ = hf(x′). It has a long line
+of work (Ghorbani et al., 2019; Kindermans et al., 2019;
+Dombrowski et al., 2019; Subramanya et al., 2019; Kuppa
+&Le-Khac, 2020; Zhang et al., 2020) and is the element
+that is most likely influenced by perturbations.
+Several empirical defenses exist to make models and expla
+nations more robust against input perturbations. A promi
+nent line of work (Chen et al., 2019; Wang et al., 2020; Dom
+browski et al., 2022; Tang et al., 2022) uses regularization
+techniques to improve attribution robustness of gradient
+based attribution methods. For model agnostic approaches
+such as SHAP and LIME, there is work on making the
+sampling more robust (Ghalebikesabi et al., 2021; Shrotri
+et al., 2022; Vreˇs & Robnik-ˇ Sikonja, 2024). A different ap
+proach is to detect perturbed inputs using anomaly detection
+(Carmichael & Scheirer, 2023).
+In our work, we address the vulnerability of attribution out
+puts to small, imperceptible noise by providing guarantees
+that ℓ2-bounded perturbations within a certified radius will
+not alter the certified attribution map.
+Certified explanations While these defenses can empiri
+cally improve the robustness of certain explanations, they
+lack theoretical guarantees. Recognizing the importance of
+such guarantees, recent work has started to explore certi
+f
+iably robust attributions. They typically use randomized
+smoothing to derive bounds on a per-image similarity score
+between perturbed and non-perturbed attributions.
+The first work to consider such guarantees by Levine et al.
+(2019) defines a top-k score that measures the percentage of
+intersection between the k largest Sparsified SmoothGrad
+attributions of the base and the perturbed image. Sparsified
+SmoothGrad is defined as the expected value of sparsified
+Grad with added noise to the input. The authors compute a
+certified lower bound to this top-k similarity under bounded
+perturbations using Randomized Smoothing (Cohen et al.,
+2019; Lecuyer et al., 2019; Anani et al., 2024). Liu et al.
+(2022) propose a tighter bound using R`eni differential pri
+vacy. They also generalize the concept from ℓ2-norm per
+turbation models to general ℓp-norm radii using generalized
+normal distributions. Expanding on top-k score, Chen et al.
+(2022) prove bounds on the ranking stability (thickness) of
+the top-k predictions.
+Other methods consider bounds to the local Lipschitz con
+stant (Tan & Tian, 2023) or ℓp-norms (Wang & Kong, 2023;
+2024) as robustness metrics. Lin et al. (2024) show an upper
+bound on the distance between perturbed and unperturbed
+removal-based attribution methods, and Dhurandhar et al.
+(2024) invert the typical certification process and grow ro
+bust attribution regions in the input space that maintain a
+certain level of fidelity.
+We propose a novel approach to certify attribution robust
+ness at the pixel level, producing high-quality visual cer
+tificates. Unlike prior work focused on non-interpretable
+image-level bounds, this is, to our knowledge, the first to
+offer pixel-level certification.
+3. Preliminaries: Randomized Smoothing
+This section introduces Randomized Smoothing for classifi
+cation and segmentation, which is an essential background
+for our work. One key insight into our method is that we
+view attribution methods for classifiers as a segmentation
+task, which allows us to certify their pixel-wise robustness.
+3.1. Classification
+The core idea of Randomized Smoothing (Lecuyer et al.,
+2019; Cohen et al., 2019) is to transform any black-box
+classifier f into a smoothed version g by adding isotropic
+Gaussian noise to the input x:
+g(x) := argmax
+c∈Y
+P(f(x +ϵ) = c),
+(1)
+where f : Rm → Y, g : Rm → Y, and ϵ ∼ N(0,σ2I).
+The smoothed model g therefore returns the class that f
+predicts with the highest probability. Cohen et al. (2019)
+show that this prediction is robust (i.e., predicts the same
+class) for all inputs within an ℓ2-radius around the input x:
+g(x) = g(x+δ), ∀δ ∈ Rm,||δ||2 ≤ R,
+(2)
+where the radius R := σ
+2(Φ−1(pA) − Φ−1(pB)). Φ−1 de
+notes the inverse cumulative distribution function (CDF) of
+the standard Gaussian. R depends on the noise level σ and
+the difference between the lower bound of the top class pA
+and upper bound of the runner-up class
+pB probabilities.
+Since g(x) cannot be computed directly for general black
+box functions f, Cohen et al. (2019) approximate it through
+Monte-Carlo sampling. Drawing n i.i.d samples from
+N(0,σ2I), g(x) is approximated with confidence 1 − α,
+3
+Pixel-level Certified Explanations via Randomized Smoothing
+where α ∈ [0,1) is a preset hyper-parameter that bounds
+the type I error probability.
+3.2. Segmentation
+Fischer et al. (2021) extend Randomized Smoothing to seg
+mentation models f : Rm×N → YN with N output com
+ponents (one prediction per pixel). The method strictly cer
+tifies stable components while abstaining from non-robust
+ones. To this end, the authors define a threshold for the top
+class probability τ ∈ [0.5,1) and abstain for all components
+whose top class probability is below τ. The smooth model
+gτ : RN×m → ˆYN isdefined as:
+gτ
+i (x) = cA,i if Pϵ∼N(0,σ2I)(fi(x + ϵ) = cA,i) > τ,
+⊘ otherwise,
+(3)
+where cA,i = argmaxc∈Y Pϵ∼N(0,σ2I)(fi(x+ϵ) = c) and
+ˆ
+Y =Y∪{⊘}istheset of class labels combined with the
+abstain label. For all gτ
+i(x) ̸ = ⊘, i.e., all pixels for which
+the method does not abstain, we get a guarantee that they
+are robust in an ℓ2 ball around the input x:
+Theorem 3.1 (from (Fischer et al., 2021)). Let Ix = {i |
+gτ
+i (x) ̸ = ⊘,i ∈ 1,...,N} be the set of certified component
+indices in x. Then, for a perturbation δ ∈ Rm×N with
+||δ||2 < R := σΦ−1(τ), for all i ∈ Ix: gτ
+i(x+δ) = gτ
+i(x).
+4. Pixel-Certified Attributions
+Motivation Attribution methods assign a real-valued
+score to each pixel, indicating its relevance to the classi
+f
+ier’s prediction. Our goal is to certify the robustness of
+these pixel-level attributions– showing that for any attri
+bution method, given an input image, pixels classified as
+“important” or “not important” robustly remain the same
+for an ℓ2 ball around the input. While prior work provides
+image-level bounds on similarity between perturbed and
+unperturbed attributions (Wang & Kong, 2023; 2024; Dhu
+randhar et al., 2024; Levine et al., 2019; Liu et al., 2022;
+Chen et al., 2022), no method certifies individual pixels in
+attribution maps. This gap likely stems from the challenge
+of certifying high-dimensional outputs. However, certifying
+a high-dimensional output was addressed by Fischer et al.
+(2021) via Randomized Smoothing for segmentation func
+tions (Section 3.2). We thus aim to adapt attribution methods
+to such a framework to certify their outputs pixel-wise.
+Our approach Toachieve pixel-level certification of at
+tribution methods, we reformulate the base attribution task
+as a segmentation problem, where each pixel is classified as
+either “important” or “not important”. We achieve this by
+(i) sparsifying (i.e., binarizing) the output of the attribution
+function (Section 4.1) and (ii) constructing a smoothed ver
+sion of the sparsified attribution function (Section 4.2). This
+transformation allows us to view the smoothed sparsified at
+tribution as a smoothed segmentation function (Section 4.3),
+enabling direct application of Theorem 3.1 for pixel-wise
+certification of the attribution output.
+4.1. Sparsification
+Sparsifying attribution outputs has been shown to improve
+their certifiable robustness (Liu et al., 2022). While sparsifi
+cation does not reflect the absolute values of attributions, it
+suggests that relative ranks of attribution values are impor
+tant for interpretation. We therefore operate on sparsified
+attribution functions, which (i) allows us to get theoretical
+guarantees on its outputs through Randomized Smoothing
+for segmentation, while (ii) producing high-quality certified
+attribution maps (Section 7.1).
+Given an attribution function h : Rc×N → RN, which maps
+an image x ∈ Rc×N with N pixels (c = 3 for RGB) to N
+attribution real values, we define the sparsified version of
+this function hK : Rc×N → {1,0}N. It is parameterized
+by K ∈[50,100], indicating that the top K% of values are
+mapped to 1 and the rest to 0:
+hK
+i (x) = 1 if rank(hi(x))
+N
+0 otherwise
+≤ K
+100
+(4)
+where rank(hi(x)) returns the descending order of the i-th
+pixel (e.g., 0 for largest, N − 1 for smallest).
+4.2. Smoothed Sparsified Attributions
+To certify the output of the sparsified attribution function
+hK in Eq. 4, we view it as a segmentation function that
+generates a segmentation map, assigning a class to each
+pixel. Specifically, hK classifies every pixel into two classes:
+1 “important” or 0 “not important”. We use Randomized
+Smoothing for segmentation as outlined in Section 3.2 to
+construct a smoothed version of a base sparsified attribution
+(segmentation) function. This function then provides per
+pixel certified classes with robustness guarantees.
+Specifically, given a sparsified attribution function hK and
+Gaussian noise ϵ ∼ N(0,σ2I), the smoothed sparsified at
+tribution function ¯ hτ,K : Rc× N → {1,0,⊘} parametrized
+by τ and the sparsification parameter K, is defined as:
+
+
+
+¯
+hτ,K
+i
+(x) =
+
+
+1 ifPϵ∼N(0,σ2I)(hK
+i (x + ϵ) = 1) > τ
+0 ifPϵ∼N(0,σ2I)(hK
+i (x + ϵ) = 0) > τ
+⊘ otherwise.
+(5)
+which returns the certified class 1 or 0 for the i-th pixel if the
+class probability is higher than the threshold τ ∈ [0.5,1),
+otherwise, it abstains. A pixel certified as “1” means that
+4
+Pixel-level Certified Explanations via Randomized Smoothing
+it remains in the top K% of values across all perturbed
+attributions with a high probability, while “0” means that it
+remains in the bottom (100-K)%. For all non-abstain indices
+in the smoothed sparsified attribution function ¯ hτ,K output,
+¯
+hτ,K
+i
+(x) ̸ = ⊘, the certified class remains the same within
+an ℓ2 ball around the input x, as stated in Theorem 3.1.
+The certified radius R := σΦ−1(τ) from Theorem 3.1 of
+the smoothed sparsified attribution function is high when
+(i) the noise level σ is high, but it comes at the cost of a
+degraded performance in the base model, and (ii) the top
+class probability τ is high, as it is a more strict condition to
+certify the top class. We analyze the impact of varying the
+certified radius in Sections 7.2, 7.3 and App. B, qualitatively
+in App. E and G, and the effect of τ in App. C.
+4.3. Estimating the smoothed sparsified attribution
+Evaluating the output of the sparsified smoothed attribu
+tion ¯ hτ,K in Eq. 5 requires sampling from the sparsified
+attribution hK Eq. 4 as it is evaluated on a data distribu
+tion X := N(x,σ2I) around x instead of a single point
+x. By design, the smoothed sparsified attribution ¯ hτ,K is
+mathematically equivalent to the smoothed segmentation
+model gτ in Eq. 3. We thus employ the same Monte-Carlo
+sampling used for smoothed segmentation to compute the
+certified attribution output (Fischer et al., 2021).
+5. Robustness Evaluation Metrics
+To evaluate the certified robustness, localization, and faith
+fulness of attribution methods, we introduce three quantita
+tive metrics.
+%certified In our pixel-level certification setup, a pixel in
+the output is either certified or abstained from. Abstentions
+occur when the assigned class for the pixel fluctuates in
+noise during sampling, indicating that the pixel does not
+consistently belong to the top K% or bottom (100-K)% of
+perturbed attributions. Therefore, we use %certified as a
+robustness metric, which is the ratio of certified pixels to all
+pixels. Given an image x ∈ Rc×N, %certified is defined as:
+%certified(x) = |{i | ¯ hτ,K
+i
+(x) ̸ = ⊘}|
+N
+(6)
+This score is maximized when all pixels are certified
+(%certified(x) = 1) and minimized when all pixels are
+abstained from (%certified(x) = 0).
+Certified GridPG Since there is no ground truth to the
+attribution methods, several metrics have been proposed to
+evaluate them. Localization metrics measure how well the
+attribution method localizes class-discriminative features.
+For the Grid Pointing Game (GridPG) (Bohle et al., 2021),
+the attribution methods are evaluated on a synthetic m × m
+grid of images in which every class occurs at most once.
+GridPG then measures the ratio of the positive attributions
+assigned to a subimage within the grid to the rest of the grid.
+Let A+(p) refer to the positive attribution for the p-th pixel
+in the grid. Then, the localization score for a subimage xi:
+Li =
+p∈xi 
+A+(p)
+m2
+j=1 p∈xj 
+A+(p)
+(7)
+This score is maximized when all positive attributions are
+fully localized within a subimage, yielding a score of Li =
+1, and minimized when no positive attributions are located
+within the subimage Li = 0.
+Instead of using positive attributions, we reformulate this
+metric to find the ratio of pixels certified as “1” (i.e., to be
+in the top K% of the grid) within the subimage to the whole
+grid. Let Ac(p) be a binary function that only returns 1 for
+pixels certified as top K%. Then, the certified localization
+score for a subimage xi is:
+cLi =
+p∈xi 
+Ac(p)
+m2
+j=1 p∈xj 
+Ac(p)
+(8)
+Both metrics are certified, which means their values remain
+the same within an ℓ2 ball around the input bounded by the
+certified radius.
+Faithfulness Beyond robustness and localization, we also
+assess whether certified attributions truly highlight class
+relevant evidence. Inspired by deletion metrics used in prior
+work on explanation evaluation (Fong & Vedaldi, 2017; Pet
+siuk et al., 2018a), we define a deletion-based faithfulness
+score for certified attributions. For a given image and its
+certified attribution maps at sparsification levels K, we iter
+atively remove (e.g., set to zero) the pixels that are certified
+as “1”– starting with the most important (lowest K)– and
+record the model’s confidence in the original class after each
+removal step. A steep confidence drop after deleting a small
+fraction of certified pixels indicates that those pixels were
+indeed crucial to the prediction, signaling high faithfulness.
+6. Experimental Setup
+Dataset and Architecture We use the ImageNet (Rus
+sakovsky et al., 2015) dataset and 5 classification models:
+ResNet-18 (He et al., 2016), Wide ResNet-50-2 (Zagoruyko
+&Komodakis,2016), ResNet-152(Heetal., 2016), VGG-11
+(Karen, 2015), and ViT-B/16 (Dosovitskiy et al., 2020). Im
+plementation details for extending attributions from CNNs
+to transformers (e.g., ViT-B/16) are in App. A.2. We se
+lect images that were classified with a high confidence by
+ResNet-18 and VGG-11, ensuring the top K% pixels con
+stitute positive evidence for the correct class. Due to the
+5
+Pixel-level Certified Explanations via Randomized Smoothing
+computational cost of sampling during certification, we ran
+domly select 100 images from the validation set, on which
+we compute all results. The image dimension is 224 × 224.
+Evaluation on Certified GridPG We create 2 × 2 grids of
+images from distinct classes, sampled from the confidence
+f
+iltered validation set. For each attribution method, we
+generate 100 such grids to compute GridPG and Certified
+GridPG scores. Each grid has a resolution of 448 × 448.
+Evaluation at layers We evaluate all attribution methods at
+the input and final spatial layer for a fair comparison (Rao
+et al., 2022). Attributions from deeper layers are bilinearly
+upsampled to input resolution (Selvaraju et al., 2017).
+Attribution methods We certify 12 attribution methods
+from 3 families: (i) backpropagation-based: Grad (Si
+monyan, 2014), GB (Springenberg et al., 2014), IntGrad
+(Sundararajan et al., 2017), IxG (Shrikumar et al., 2017)
+and LRP (Bach et al., 2015) (ii) activation-based: CAM
+(Zhou et al., 2016), Grad-CAM (Selvaraju et al., 2017),
+Grad-CAM++ (Chattopadhay et al., 2018), Ablation-CAM
+(Ramaswamy et al., 2020) and Layer-CAM (Jiang et al.,
+2021), and (iii) perturbation-based: RISE (Petsiuk et al.,
+2018b) and Occlusion (Zeiler & Fergus, 2014). The imple
+mentation details are in App. A.1. We display SS (Smoothed
+Sparsified), which is the average of the sparsified attribu
+tions evaluated on n = 100 noisy input samples per image.
+Note that LRP and Cam are not evaluated on ViT-B/16 due
+to the extension complexity to the transformer architecture.
+Certification We use noise level σ = 0.15, number of
+samples n = 100 per image, top class probability τ = 0.75
+and α = 0.001, unless stated otherwise. All certified results
+are robust with confidence 1 − α w.r.t the radius R = 0.10,
+unless stated otherwise. Abstain pixels are marked gray
+(labelled ⊘), and certified bottom (100 − K)% (“0”) pixels
+are marked white, and top K% (“1”) are colored otherwise.
+7. Results and Discussion
+We evaluate our certification approach across three attri
+bution families, presenting qualitative certified attribution
+visuals (7.1) and quantitative robustness comparisons using
+%certified (7.2) and Certified GridPG (7.3). We also ana
+lyze the robustness-localization tradeoff (7.4), highlighting
+methods that have most balance, and their faithfulness (7.5).
+7.1. Certified Attributions Visuals
+Figure 2 shows certified attribution maps at different sparsi
+f
+ication values K. As K decreases, fewer pixels are certi
+f
+ied as top K% (“1”), highlighting finer details (e.g., LRP
+marks the fish’s eye at K = 5%), while larger K values
+capture coarser features (e.g., LRP highlights the full fish
+Certified
+Input
+Grad
+LRP
+RISE
+GradCam
+GradCam++
+SS
+K=50%
+K=25%
+K=5%
+Overlayed
+0 Top 50% Top 25% Top 5%
+Figure 2: Certified attributions of selected methods at dif
+ferent sparsification parameter (K) values on ResNet-18.
+SS (Smoothed Sparsified) is evaluated on n = 100 noisy
+input samples per image and at K = 50%. The “Over
+layed” column shows overlayed certified top K% pixels per
+method, with lower K taking precedence. Extended figures
+for ResNet-18 and ResNet-152 on all attribution methods at
+various certified radii for more examples are in App. E.
+LRP
+RISE
+GradCam
+Top 30% Top 20% Top 10%
+Figure 3: Examples from overlayed certified GridPG at
+tributions at different sparsification K values on ResNet
+18. The blue square denotes the ground truth subimage.
+at K =50%). Overlaying maps across K (see “Overlayed”
+column) reveals a pixel importance hierarchy, with darker
+pixels denoting higher importance. Figure 4 extends this
+to more examples and all 12 methods. Certified attribu
+tions highlight semantic features well, with LRP offering
+the most detail. Input-layer methods (backpropagation and
+perturbation) benefit from higher K due to noise-induced
+ranking instability, while activation methods benefit from a
+lower K for finer isolation of their coarse outputs.
+6
+Pixel-levelCertifiedExplanationsviaRandomizedSmoothing
+SS Certified SS Certified SS Certified SS Certified SS Certified SS Certified SS Certified SS Certified SS Certified SS Certified SS Certified SS Certified
+Grad GB IxG IntGrad LRP RISE Occlusion Cam GradCam GradCam++ AblationCam LayerCam
+Top 50% Top 25% Top 10% Top 5%
+Figure4:OverlayedcertifiedattributionsatdifferentKvaluesacrossmethodsonResNet-18.SS(SmoothedSparsified),
+whichreferstotheaverageofthesparsifiedattributions, isevaluatedonn=100noisyinputsamplesperimageandat
+K=50%.ThisfigureisextendedtoViT-B/16inApp.Figure20.
+Tovisualizethelocalizationofcertifiedattributions,Fig
+ure3displayscertifiedattributiongridexamples. Ineach
+grid, thetop-leftsubimagecontainsthecertifiedtopK%
+pixels,whicharecorrectlylocalizedtothetargetclass.A
+rigorousqualitativeanalysisofcertifiedgridsisinApp.G.
+7.2.RobustnessEvaluationofAttributions
+Weassessattributionrobustnessusingthe%certifiedmetric
+inFigure5at the input andfinal layersacrosscertified
+radiusRandsparsificationKvalues. IncreasingR(Figure
+5, top)reducescertificationratesformostmethods,asit
+increasesthenoiseσ,makingattributionslessstable.Grad
+andGBat thefinal layerareexceptions,astheyproduce
+almost constantgrid-likepatterns inResNet-18, though
+uninformative(Section7.3).LoweringK(Figure5,bottom)
+shiftscertificationratesfromtopK%pixels(darkestshade)
+tolower(100−K)%pixels(mediumshade).Atthefinal
+layer,methodscertifymoretop-K%pixels,reflectingthe
+robustnessofhigh-levelfeaturestonoise.Wenextdiscuss
+resultsbymethodfamily.
+BackpropagationmethodsAt theinput layer(Figure5,
+top),LRPisthemostrobustamongbackpropagationmeth
+ods(secondoverallafterRISE),whileothermethodsshow
+%certified≈0,duetotheirrelianceoninputmagnitude
+(e.g.,IxGandIntGrad),henceincreasingsensitivitytoper
+turbations.
+Activation-basedmethods InFigure5(top), activation
+methodsoutperformbackpropagationmethodsin%certi
+fiedatthefinallayerasRincreases,withtheexceptionof
+GradandGB.Grad-CAM++andLayer-CAMscorehigher
+%certifiedthanotheractivationmethods.
+0.10 0.17 0.22
+Certified radius (R) at K=50%
+0
+25
+50
+75
+100
+% of pixels
+Backpropagation
+0.10 0.17 0.22
+Perturbation
+0.10 0.17 0.22
+Activation
+0.10 0.17 0.22
+Backpropagation
+0.10 0.17 0.22
+Perturbation
+0.10 0.17 0.22
+Activation
+50 30 10
+Sparsification parameter (K) at R=0.10
+0
+25
+50
+75
+100
+% of pixels
+50 30 10 50 30 10 50 30 10 50 30 10 50 30 10
+Input layer Final layer Grad
+GB
+IxG
+IntGrad
+LRP
+RISE
+Occlusion
+Cam
+GradCam
+GradCam++
+AblationCam
+LayerCam
+Shading Logic (LRP)
+Certified "1" (Darkest)
+Certified "0" (Medium)
+Abstain " " (Lightest)
+Figure5:Comparisonoftheper-pixelcertificationrate(%certified)onResNet-18acrossbackpropagation,perturba
+tionandactivationmethods. (Left)showsevaluationattheinputand(Right)atthefinallayerusingdifferentcertified
+radiiR(Top)andsparsificationparameterKvalues(Bottom).Thedarkestshadesdenote%certifiedpixels,whilebrightest
+denotesabstain⊘.Thisfigureisextendedto5modelsinApp.Figures9and10.
+7
+Pixel-levelCertifiedExplanationsviaRandomizedSmoothing
+0.10 0.17 0.22
+Certified radius (R) at K=50%
+0.00
+0.25
+0.50
+0.75
+1.00
+Certified GridPG
+Backpropagation
+0.10 0.17 0.22
+Perturbation
+0.10 0.17 0.22
+Activation
+0.10 0.17 0.22
+Backpropagation
+0.10 0.17 0.22
+Perturbation
+0.10 0.17 0.22
+Activation
+50 30 10
+Sparsification parameter (K) at R=0.10
+0.00
+0.25
+0.50
+0.75
+1.00
+Certified GridPG
+50 30 10 50 30 10 50 30 10 50 30 10 50 30 10
+Input layer Final layer
+random
+baseline
+Grad
+GB
+IxG
+IntGrad
+LRP
+RISE
+Occlusion
+Cam
+GradCam
+GradCam++
+AblationCam
+LayerCam
+Figure6:Comparisonofthecertifiedlocalization(CertifiedGridPG)onResNet-18acrossbackpropagation,pertur
+bationandactivationmethods. (Left)showsevaluationattheinputand(Right)atthefinallayerusingdifferentcertified
+radii(Top)andsparsificationparameterKvalues(Bottom).Thisfigureisextendedto5modelsinApp.Figures11and12
+Perturbation-basedmethodsRISEoutperformsallother
+methodsattheinputlayer,withthehighestcertificationrates
+acrossallradii. Ithasahigh%certifiedscoreatbothlayers,
+unlikeOcclusion,whichimprovesonlyat thefinal layer.
+Thishighlights therobustnessadvantageof randomized
+overdeterministicmasking.
+CertifiedRobustness:RISEandLRParethemost
+robustacrosssettings.Allmethodsaremorerobuston
+thefinallayer.
+7.3.CertifiedLocalizationEvaluationofAttributions
+Weevaluate the localizationperformanceof attribution
+methodsusingtheCertifiedGridPGmetric(Eq. 8)atthe
+inputandfinallayersinFigure6byvaryingthecertifiedra
+diusRandsparsificationparameterK. IncreasingRraises
+thevarianceinCertifiedGridPGscores,withRISEshow
+ingtheleastvariance.Activationmethodsperformworse
+thanrandomontheinputlayer.LRP,RISEandOcclusion
+acheivenearperfect localizationatK=10%(Figure6,
+bottom),suggestingthatcertifyingfewertopK%pixelsen
+hancesfocusonthecorrectsubimageinthegridinmethods
+thatarealreadyrobust(seeFigure5).Overall,perturbation
+methods(e.g.,RISE)demonstratesuperiorlocalizationasR
+increasesorKdecreasesatbothlayers,makingthemmore
+reliable.Wenextdiscussresultsbymethodfamily.
+BackpropagationmethodsAtR=0.10(Figure6, left),
+Gradachieves thehighestCertifiedGridPGat the input
+layer, followedbyIxG, IntGradandLRP;GBperforms
+worst.Atthefinallayer,GradandGBdroptorandomlocal
+izationdespitehighcertificationrates(Figure5),showing
+thatrobustnessdoesnotguaranteelocalization(Section7.4).
+ActivationmethodsAtthefinallayer,increasingRlowers
+CertifiedGridPGbelowtherandombaselineforallbut
+CAMandGrad-CAM,scoringthehighest. ReducingK
+improveslocalizationacrossmethods,withCAMandGrad
+CAMachievingnear-perfectperformanceatK=10%.
+PerturbationmethodsRISEandOcclusionhavecompa
+rableCertifiedGridPGscoresatboththeinputandfinal
+layer.AsKdecreasesattheinputlayer,RISEandOcclu
+sionimprove,withRISEachievinganear-perfectscoreat
+K=10%.
+CertifiedLocalization: LRP,RISE,andOcclusion
+localizebestacrosssettings.ExceptforGradandGB,
+allmethodslocalizewellatthefinallayer.
+7.4.Robustnessvs.LocalizationTradeoff
+Wepreviouslyanalyzedcertifiedrobustness(Section7.2)
+andlocalization(Section7.3),notingthathigherrobustness
+doesnotnecessarilyimplybetterlocalizationandviceversa.
+Toputbothtogether,Figure7examinesthetradeoffbetween
+certifiedrobustness(%certified)andlocalization(Certified
+GridPG)across5modelsincludingCNNsandaViT.
+InputlayerRISEandLRPofferthebest tradeoffacross
+models,withhighlocalizationandrobustness.Grad,GB,
+andIntGradscorehighestonCertifiedGridPG(e.g.,W
+ResNet-50-2,ResNet-152)butshownear-zerorobustness.
+Activationmethodsperformpoorlyonbothmetrics.
+FinallayerRISEagainstrikesthebestbalancealongside
+Occlusionandactivationmethods,whileGradandGBare
+mostrobustbutshowrandom-likelocalization.RISEmain
+tainsthebestbalanceespeciallyonViT-B/16whereothers
+fail.Overall, thetradeoffimprovesat thefinal layer,sug
+gestingcoarserattributionsbetterenhancelocalizationand
+robustness,aligningwithresultsin7.2and7.3.
+8
+Pixel-levelCertifiedExplanationsviaRandomizedSmoothing
+0
+0.25
+0.50
+0.75
+1
+Input
+Cert.Robustness
+ResNet-18
+Cert.Localization
+W-ResNet-50-2
+Cert.Localization
+ResNet-152
+Cert.Localization
+VGG-11
+Cert.Localization
+ViT-B/16
+Cert.Localization
+0 0.250.500.75 1
+0
+0.25
+0.50
+0.75
+1
+Final
+Cert.Robustness
+0 0.250.500.75 1 0 0.250.500.75 1 0 0.250.500.75 1 0 0.250.500.75 1
+Best
+Grad
+GB
+IxG
+IntGrad
+LRP
+RISE
+Occlusion
+Cam
+GradCam
+GradCam++
+AblationCam
+LayerCam
+Figure7:Robustness-localizationtradeoffofattributionmethodsusingthe%certifiedandCertifiedGridPGmetrics
+onall5modelsatK=30%. (Top)evaluationisoninputand(Bottom)finallayers.
+7.5.FaithfulnessAnalysisofCertifiedAttributions
+Orig.
+K=10
+K=30
+K=50
+0
+0.20
+0.40
+0.60
+0.80
+1
+ResNet-18
+GTClassprobability
+Input
+Deletionsteps
+Orig.
+K=10
+K=30
+K=50
+Final
+Deletionsteps
+Grad
+GB
+LRP
+RISE
+Occlusion
+GradCam
+GradCam++
+AblationCam
+LayerCam
+Figure8:Faithfulnesscomparisonofcertifiedattribution
+methodsonResNet-18usingthegroundtruth(GT)class
+confidenceagainstthedeletionstepsinwhichtopKcerti
+fiedpixelsareremovedindescendingorderofimportance.
+(Left)evaluationisattheinputand(Right)atthefinallayer.
+Weassessthefaithfulnessofcertifiedattributionsusinga
+deletion-based(Petsiuketal.,2018b)analysis(describedin
+Section5)inFigure8.
+Input layerInFigure8(left),LRPandRISEcausethe
+steepestdropinclassconfidenceafterthefirstdeletionstep,
+indicatinghighfaithfulness.Grad-CAMyieldsthesmallest
+decrease,reflectingweakalignmentwithclass-relevantfea
+tures,consistentwithitsnear-randomcertifiedlocalization
+inFigure6.LRPandRISEalsoachievethehighestCertified
+GridPGscoresacrossmodels(Figures6,7),showingstrong
+alignmentbetweencertifiedlocalizationandfaithfulness.
+FinallayerInFigure8(right),mostmethodsinduceapre
+dictionflipafterthefirststep,indicatinghigherfaithfulness
+thanattheinputlayer.However,someshowhighfaithful
+nessdespitepoorlocalization.Forexample,GBandGrad
+yieldnear-randomCertifiedGridPGscores(Figure6)but
+causesteepconfidencedrops(Figure8).Thissuggeststheir
+grid-likefinal-layerpatternsintroducedeletionartifactsthat
+disruptpredictionswithoutidentifyingrelevantregions.
+Allthreemetrics,%certified,CertifiedGridPGandfaithful
+ness,complementeachothertounderstanddifferentaspects
+ofcertifiedattributions,whichisessential forproducing
+trustworthyattributionsinsafety-criticaldomains.
+LRPandRISEstrikethebestbalanceamongrobust
+ness,localizationandfaithfulness,acrosssettings.
+8.Conclusion
+Weproposepixel-wisecertificationofattributionmethods
+andaframeworktoevaluatetheircertifiedrobustnessand
+localization.First,weintroduceper-pixelcertificationfor
+smoothedsparsifiedattributionsbyreformulatingattribu
+tionasasegmentationtask,enablingdirectapplicationof
+RandomizedSmoothingtoproducecertified,high-quality
+attributionmaps.Second,wepresentanevaluationscheme
+usingthreemetrics,percentageofcertifiedpixels,Certi
+fiedGridPG,anddeletion-basedfaithfulness, toevaluate
+twelveattributionmethodsacrossbackpropagation,activa
+tion,andperturbationfamilies.Ourquantitativeanalysis
+showsthatRISEandLRPachievethebesttradeoffacross
+thethreemetricsacrosssettings,whileothermethodsvary
+inperformance.
+9
+Pixel-level Certified Explanations via Randomized Smoothing
+Impact Statement
+Weintroduce a novel framework for certifying attribution
+methods at the pixel level, reframing attribution as a seg
+mentation task and applying Randomized Smoothing for
+segmentation to certify each pixel as “important” or “not im
+portant” under ℓ2-bounded input perturbations. This yields
+the first certifiably robust attribution maps applicable to
+any black-box method, offering both fine-grained visual
+explanations and per-pixel robustness guarantees.
+Our approach enables two key contributions: (i) robust, in
+terpretable certified attributions that can inform downstream
+tasks, and (ii) a new evaluation paradigm for attribution
+robustness, including visual and quantitative comparisons
+across methods. To this end, we propose %certified, which
+measures robustness, and Certified GridPG, which captures
+robust localization.
+This work addresses the critical lack of robustness in at
+tribution methods and underscores the ethical and societal
+importance of trustworthy AI explanations in high-stakes
+settings such as healthcare, justice, and autonomous sys
+tems.
+Societal Impact Our framework advances trustworthy and
+explainable AI by providing certified attributions that are
+reliable under input perturbations. In domains like health
+care, law, and autonomous driving, where understanding
+model reasoning is vital, our method enhances decision
+transparency and reliability. It also introduces a principled
+way to compare attribution methods, fostering more robust
+and interpretable deep learning models. Collaborations with
+practitioners can support integration into real-world systems,
+increasing accountability and trust.
+Ethical Considerations In safety-critical domains, espe
+cially medical decision-making, certifiably robust attribu
+tions offer ethical advantages by reducing the risk of mis
+leading explanations. When paired with expert oversight,
+our method supports more informed and reliable decision
+making.
+Conclusion We present the first general-purpose framework
+for certifying and evaluating attribution methods at the pixel
+level, addressing long-standing robustness challenges. Our
+method enables practical, reliable, and trustworthy model
+explanations, and lays the foundation for future work in
+certifiably robust AI. Ultimately, we anticipate a positive
+societal impact by improving explainability, robustness, and
+safety in AI systems.
+Acknowledgements
+Wegreatly thank Dr. Jonas Fischer for the valuable feedback
+and technical discussions during the rebuttal phase. We very
+much appreciate the diligent and constructive reviews by
+all reviewers, and believe the additional insights gained in
+preparing the rebuttal, and expanding the analysis in our
+work, significantly strengthen our paper.
+This work was partially funded by ELSA– European Light
+house on Secure and Safe AI funded by the European Union
+under grant agreement No. 101070617. Views and opinions
+expressed are however those of the authors only and do not
+necessarily reflect those of the European Union or European
+Commission. Neither the European Union nor the European
+Commission can be held responsible for them.
+10
+Pixel-level Certified Explanations via Randomized Smoothing
+References
+Anani, A., Lorenz, T., Schiele, B., and Fritz, M. Adaptive
+hierarchical certification for segmentation using random
+ized smoothing. In International Conference on Machine
+Learning (ICML), 2024.
+Arias-Duart, A., Par´es, F., and Garcia-Gasulla, D. Who
+explains the explanation? quantitatively assessing feature
+attribution methods. arXiv preprint arXiv:2109.15035,
+2021.
+Bach, S., Binder, A., Montavon, G., Klauschen, F., M¨uller,
+K.-R., and Samek, W. On pixel-wise explanations for
+non-linear classifier decisions by layer-wise relevance
+propagation. PloS one, 2015.
+Baniecki, H. and Biecek, P. Adversarial attacks and defenses
+in explainable artificial intelligence: A survey. Informa
+tion Fusion, 2024.
+Bohle, M., Fritz, M., and Schiele, B. Convolutional dynamic
+alignment networks for interpretable classifications. In
+Computer Vision and Pattern Recognition (CVPR), 2021.
+Carmichael, Z. and Scheirer, W. J. Unfooling perturbation
+based post hoc explainers. In AAAI Conference on Artifi
+cial Intelligence (AAAI), 2023.
+Chattopadhay, A., Sarkar, A., Howlader, P., and Balasubra
+manian, V. N. Grad-cam++: Generalized gradient-based
+visual explanations for deep convolutional networks. In
+Winter Conference on Applications of Computer Vision
+(WACV), 2018.
+Chen, C., Guo, C., Ma, G., Zeng, M., Zhang, X., and Xie,
+S. Provable robust saliency-based explanations. arXiv
+preprint arXiv:2212.14106, 2022.
+Chen, J., Wu, X., Rastogi, V., Liang, Y., and Jha, S. Ro
+bust attribution regularization. In Advances in Neural
+Information Processing Systems (NeurIPS), 2019.
+Cohen, J., Rosenfeld, E., and Kolter, Z. Certified adversarial
+robustness via randomized smoothing. In International
+Conference on Machine Learning (ICML), 2019.
+Dabkowski, P. and Gal, Y. Real time image saliency for
+black box classifiers. In Advances in Neural Information
+Processing Systems (NeurIPS), 2017.
+Dhurandhar, A., Haldar, S., Wei, D., and Ramamurthy, K. N.
+Trust regions for explanations via black-box probabilistic
+certification. In International Conference on Machine
+Learning (ICML), 2024.
+Dombrowski, A.-K., Alber, M., Anders, C., Ackermann,
+M., M¨uller, K.-R., and Kessel, P. Explanations can be
+manipulated and geometry is to blame. In Advances in
+Neural Information Processing Systems (NeurIPS), 2019.
+Dombrowski, A.-K., Anders, C. J., M¨uller, K.-R., and
+Kessel, P. Towards robust explanations for deep neural
+networks. Pattern Recognition, 2022.
+Dosovitskiy, A., Beyer, L., Kolesnikov, A., Weissenborn,
+D., Zhai, X., Unterthiner, T., Dehghani, M., Minderer,
+M., Heigold, G., Gelly, S., et al. An image is worth
+16x16 words: Transformers for image recognition at scale.
+International Conference for Learning Representations
+(ICLR), 2020.
+Fischer, M., Baader, M., and Vechev, M. Scalable certified
+segmentation via randomized smoothing. In International
+Conference on Machine Learning (ICML), 2021.
+Fong, R. C. and Vedaldi, A. Interpretable explanations of
+black boxes by meaningful perturbation. In International
+Conference on Computer Vision (ICCV), 2017.
+Ghalebikesabi, S., Ter-Minassian, L., DiazOrdaz, K., and
+Holmes, C. C. On locality of local explanation models.
+In Advances in Neural Information Processing Systems
+(NeurIPS), 2021.
+Ghorbani, A., Abid, A., and Zou, J. Interpretation of neural
+networks is fragile. In AAAI conference on artificial
+intelligence (AAAI), 2019.
+Guo, Z., Li, X., Huang, H., Guo, N., and Li, Q. Deep
+learning-based image segmentation on multimodal medi
+cal imaging. IEEE Transactions on Radiation and Plasma
+Medical Sciences, 2019.
+He, K., Zhang, X., Ren, S., and Sun, J. Deep residual
+learning for image recognition. In Computer Vision and
+Pattern Recognition (CVPR), 2016.
+Jiang, P.-T., Zhang, C.-B., Hou, Q., Cheng, M.-M., and
+Wei, Y. Layercam: Exploring hierarchical class activa
+tion maps for localization. IEEE Transactions on Image
+Processing (TIP), 2021.
+Karen, S. Very deep convolutional networks for large-scale
+image recognition. In International Conference for Learn
+ing Representations (ICLR), 2015.
+Kayalibay, B., Jensen, G., and van der Smagt, P. Cnn-based
+segmentation of medical imaging data. arXiv preprint
+arXiv:1701.03056, 2017.
+Kaymak, C¸. and Uc¸ar, A. A brief survey and an application
+of semantic image segmentation for autonomous driving.
+Handbook of Deep Learning Applications, 2019.
+Kindermans, P.-J., Hooker, S., Adebayo, J., Alber, M.,
+Sch¨utt, K. T., D¨ahne, S., Erhan, D., and Kim, B. The (un)
+reliability of saliency methods. Explainable AI: Interpret
+ing, explaining and visualizing deep learning, 2019.
+11
+Pixel-level Certified Explanations via Randomized Smoothing
+Kuppa, A. and Le-Khac, N.-A. Black box attacks on ex
+plainable artificial intelligence (xai) methods in cyber
+security. In International Joint Conference on Neural
+Networks (IJCNN), 2020.
+Lecuyer, M., Atlidakis, V., Geambasu, R., Hsu, D., and
+Jana, S. Certified robustness to adversarial examples with
+differential privacy. In IEEE Symposium on Security and
+Privacy (SP), 2019.
+Levine, A., Singla, S., and Feizi, S. Certifiably ro
+bust interpretation in deep learning. arXiv preprint
+arXiv:1905.12105, 2019.
+Lin, C., Covert, I., and Lee, S.-I. On the robustness of
+removal-based feature attributions. In Advances in Neural
+Information Processing Systems (NeurIPS), 2024.
+Liu, A., Chen, X., Liu, S., Xia, L., and Gan, C. Certifi
+ably robust interpretation via r´enyi differential privacy.
+Artificial Intelligence, 2022.
+Montavon, G., Lapuschkin, S., Binder, A., Samek, W., and
+M¨uller, K.-R. Explaining nonlinear classification deci
+sions with deep taylor decomposition. Pattern Recogni
+tion, 2017.
+Nissan, E. Digital technologies and artificial intelligence’s
+present and foreseeable impact on lawyering, judging,
+policing and law enforcement. Ai & Society, 2017.
+Petsiuk, V., Das, A., and Saenko, K. Rise: Randomized
+input sampling for explanation of black-box models. In
+British Machine Vision Conference (BMVC), 2018a.
+Petsiuk, V., Das, A., and Saenko, K. Rise: Randomized
+input sampling for explanation of black-box models. In
+British Machine Vision Conference (BMVC), 2018b.
+Ramaswamy, H. G. et al. Ablation-cam: Visual explana
+tions for deep convolutional network via gradient-free
+localization. In Winter Conference on Applications of
+Computer Vision (WACV), 2020.
+Rao, S., B¨ohle, M., and Schiele, B. Better understanding
+differences in attribution methods via systematic evalua
+tions. Computer Vision and Pattern Recognition (CVPR),
+2022.
+Ribeiro, M. T., Singh, S., and Guestrin, C. ” why should i
+trust you?” explaining the predictions of any classifier. In
+International Conference on Knowledge Discovery and
+Data Mining (ICKDD), 2016.
+Russakovsky, O., Deng, J., Su, H., Krause, J., Satheesh, S.,
+Ma, S., Huang, Z., Karpathy, A., Khosla, A., Bernstein,
+M., et al. Imagenet large scale visual recognition chal
+lenge. International Journal of Computer Vision (IJCV),
+2015.
+Selvaraju, R. R., Cogswell, M., Das, A., Vedantam, R.,
+Parikh, D., and Batra, D. Grad-cam: Visual explanations
+from deep networks via gradient-based localization. In
+International Conference on Computer Vision (ICCV),
+2017.
+Sheu, R.-K. and Pardeshi, M. S. A survey on medical
+explainable ai (xai): recent progress, explainability ap
+proach, human interaction and scoring system. Sensors,
+2022.
+Shrikumar, A., Greenside, P., and Kundaje, A. Learning
+important features through propagating activation differ
+ences. In International Conference on Machine Learning
+(ICML), 2017.
+Shrotri, A. A., Narodytska, N., Ignatiev, A., Meel, K. S.,
+Marques-Silva, J., and Vardi, M. Y. Constraint-driven ex
+planations for black-box ml models. In AAAI Conference
+on Artificial Intelligence (AAAI), 2022.
+Simonyan, K. Deep inside convolutional networks: Visual
+ising image classification models and saliency maps. In
+International Conference for Learning Representations
+Worshop (ICLR-W), 2014.
+Springenberg, J. T., Dosovitskiy, A., Brox, T., and Ried
+miller, M. Striving for simplicity: The all convolutional
+net. In International Conference for Learning Represen
+tations Worshop (ICLR-W), 2014.
+Subramanya, A., Pillai, V., and Pirsiavash, H. Fooling
+network interpretation in image classification. In Interna
+tional Conference on Computer Vision (ICCV), 2019.
+Sundararajan, M., Taly, A., and Yan, Q. Axiomatic attribu
+tion for deep networks. In International Conference on
+Machine Learning (ICML), 2017.
+Tan, Z. and Tian, Y. Robust explanation for free or at the cost
+of faithfulness. In International Conference on Machine
+Learning (ICML), 2023.
+Tang, R., Liu, N., Yang, F., Zou, N., and Hu, X. Defense
+against explanation manipulation. Frontiers in Big Data,
+2022.
+Vreˇs, D. and Robnik-ˇ Sikonja, M. Preventing deception
+with explanation methods using focused sampling. Data
+Mining and Knowledge Discovery (DMKD), 2024.
+Wang, F. and Kong, A. W.-K. A practical upper bound for
+the worst-case attribution deviations. In Computer Vision
+and Pattern Recognition (CVPR), 2023.
+Wang, F. and Kong, A. W.-K. Certified ℓ2 attribution robust
+ness via uniformly smoothed attributions. arXiv preprint
+arXiv:2405.06361, 2024.
+12
+Pixel-level Certified Explanations via Randomized Smoothing
+Wang, Z., Wang, H., Ramkumar, S., Mardziel, P., Fredrik
+son, M., and Datta, A. Smoothed geometry for robust
+attribution. In Advances in Neural Information Process
+ing systems (NeurIPS), 2020.
+Xi, J., Wang, D., Yang, X., Zhang, W., and Huang, Q. Can
+cer omic data based explainable ai drug recommendation
+inference: A traceability perspective for explainability.
+Biomedical Signal Processing and Control, 2023.
+Zagoruyko, S. and Komodakis, N. Wide residual networks.
+arXiv preprint, 2016.
+Zeiler, M. Visualizing and understanding convolutional
+networks. In European Conference on Computer Vision
+(ECCV), 2014.
+Zeiler, M. D. and Fergus, R. Visualizing and understand
+ing convolutional networks. In European Conference on
+Computer Vision (ECCV), 2014.
+Zhang, X., Wang, N., Shen, H., Ji, S., Luo, X., and Wang,
+T. Interpretable deep learning under fire. In USENIX
+security symposium (USENIX), 2020.
+Zhang, Z., Fidler, S., and Urtasun, R. Instance-level seg
+mentation for autonomous driving with deep densely con
+nected mrfs. In Computer Vision and Pattern Recognition
+(CVPR), 2016.
+Zhou, B., Khosla, A., Lapedriza, A., Oliva, A., and Torralba,
+A. Learning deep features for discriminative localization.
+In Conference on Computer Vision and Pattern Recogni
+tion (CVPR), 2016.
+13
+Pixel-level Certified Explanations via Randomized Smoothing
+A. Implementation Details
+A.1. Attribution Methods
+LRP (Bach et al., 2015) Following (Montavon et al., 2017; Arias-Duart et al., 2021; Rao et al., 2022), we use the
+configuration that applies the ϵ-rule to the fully connected layers in the network, with ϵ = 0.25, and the z+-rule to the
+convolutional layers, except for the first convolutional layer where we use the zB-rule.
+Occlusion (Zeiler & Fergus, 2014) Occlusion uses a sliding window of size K and stride s over the input. Following
+(Rao et al., 2022), we use K = 16, s = 8 for the input layer and K = 5, s = 2 for the final layer.
+RISE (Petsiuk et al., 2018b) We use a total of N = 6000 randomly generated masks per layer. Masks are initially
+generated on a low-resolution grid of size s × s (with default s = 6), where each cell is activated with probability 0.1. Each
+binary grid is bilinearly upsampled and cropped to match the input dimensions. The implementation supports CNN-like 4D
+tensors, following the setup in (Rao et al., 2022), as well as ViT-like 3D tensors.
+A.2. Vision Transformer ViT-B/16
+While evaluating attribution methods at the input layer for Vision Transformers is standard, evaluating them at the final
+layer requires modifications to the attribution logic. In CNNs, the final layer contains activations in the form of a 3D tensor
+of shape (C,H,W), where C is the number of channels and (H,W) correspond to spatial locations at a lower resolution
+compared to the input image. This structure aligns naturally with the input image and is usually interpolated (i.e., resized) to
+match its dimensions.
+However, Vision Transformers (e.g., ViT-B/16 (Dosovitskiy et al., 2020)) process the image as a sequence of patches, with
+each patch treated as a token. The final feature representation prior to classification is typically of shape (N,D), where N is
+the number of tokens (including the [CLS] token), and D is the hidden dimension (e.g., 768 for ViT-B/16). For ViT-B/16 and
+a 224×224input image, this results in N = 197 tokens: 1 [CLS] token and 196 patch tokens, where each patch corresponds
+to a 14 ×14 grid in the original image (a result of dividing 224 by 16).
+To enable attribution on ViTs, we discard the [CLS] token and reshape the remaining 196 tokens into a (14,14) grid,
+analogous to CNN feature maps. This allows us to treat patch embeddings as spatial features and apply attribution methods
+at the final layer similarly to how they are applied in CNNs. We adapt our attribution logic to extract these reshaped features,
+which are then bilinearly interpolated to the original image size.
+Wehave extended all attribution methods to be ViT-compatible, with the exception of LRP (Bach et al., 2015) and CAM
+(Zhou et al., 2016), due to the lack of direct extensions for these methods.
+B. Evaluation of certified attributions on 5 models: ResNet-18, W-ResNet-50-2, ResNet-152,
+VGG-11 and ViT-B/16
+B.1. Certified Robustness (%certified)
+Weassess attribution robustness on five different models using the %certified metric evaluated at the input and final layers
+across certified radii (R = 0.10, 0.17, 0.22) in Figure 9 and sparsification (K = 50, 30 and 10) in Figure 10. Note that
+ViT-B/16 is not evaluated on CAM and LRP. The general trend of reduced certification rates by increasing the certified
+radius R, as well as reduced certified top K% pixels by decreasing K holds across all five models.
+Input layer LRP and RISE exhibit the highest robustness, as they also maintain a relatively high %certified scores across
+all three radii values in Figure 9. Interestingly, they also maintain a balance in certified top K% pixels by decreasing K in
+Figure 10.
+Final layer Though Grad and GB still seem the most robust on CNNs in Figure 9, they localize very poorly, this is because
+they produce grid-like almost constant attributions at the final layer of the CNN architecture, due to max-pooling.
+ViT-B/16 Gradient-based methods exhibit low robustness on ViT-B/16 comparable to their CNNs performance on both the
+input and final layers in Figure 9. Interestingly, RISE maintains the same performance of having high robustness across
+14
+Pixel-levelCertifiedExplanationsviaRandomizedSmoothing
+botharchitecturetypes,withthehighestatradiusR=0.10at thefinal layeronViT-B/16.Activation-basedmethods
+performpoorlyonthetransformermodelcomparedtoCNNsonthefinallayer.Thisislikelyduetothelackofspatially
+structuredconvolutionalfeaturesinViTs,whichaffectsthequalityandstabilityofactivation-basedattributionswhenapplied
+totoken-basedrepresentations.WediscussthisimplementationdetailinApp.A.2.
+0.10 0.17 0.22 Certifiedradius(R)atK=50%
+0
+25
+50
+75
+100
+Backpropagation
+%ofpixels
+ResNet-18
+0.10 0.17 0.22
+W-ResNet-50-2
+0.10 0.17 0.22
+ResNet-152
+0.10 0.17 0.22
+VGG11
+0.10 0.17 0.22
+ViT-B/16
+0.10 0.17 0.22
+ResNet-18
+0.10 0.17 0.22
+W-ResNet-50-2
+0.10 0.17 0.22
+ResNet-152
+0.10 0.17 0.22
+VGG11
+0.10 0.17 0.22
+ViT-B/16
+0.10 0.17 0.22 Certifiedradius(R)atK=50%
+0
+25
+50
+75
+100
+Perturbation
+%ofpixels
+0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22
+0.10 0.17 0.22 Certifiedradius(R)atK=50%
+0
+25
+50
+75
+100
+Activation
+%ofpixels
+0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22
+Input layer Final layer
+Grad GB IxG IntGrad LRP RISE Occlusion Cam GradCam GradCam++ AblationCam LayerCam
+ShadingLogic(LRP)
+Certified”1”(Darkest) Certified”0”(Medium) Abstain”⊘”(Lightest)
+Figure9:Comparisonoftheper-pixelcertificationrate(%certified)againstthecertifiedradiusRonall5models
+acrossbackpropagation,activationandperturbationmethods. (Left)showsevaluationattheinputand(Right)atthe
+finallayer.Thedarkestshadesdenote%certifiedpixels,whilebrightestdenotesabstain⊘.
+50 30 10 Sparsificationparameter(K)atR=0.10
+0
+25
+50
+75
+100
+Backpropagation
+%ofpixels
+ResNet-18
+50 30 10
+W-ResNet-50-2
+50 30 10
+ResNet-152
+50 30 10
+VGG11
+50 30 10
+ViT-B/16
+50 30 10
+ResNet-18
+50 30 10
+W-ResNet-50-2
+50 30 10
+ResNet-152
+50 30 10
+VGG11
+50 30 10
+ViT-B/16
+50 30 10 Sparsificationparameter(K)atR=0.10
+0
+25
+50
+75
+100
+Perturbation
+%ofpixels
+50 30 10 50 30 10 50 30 10 50 30 10 50 30 10 50 30 10 50 30 10 50 30 10 50 30 10
+50 30 10 Sparsificationparameter(K)atR=0.10
+0
+25
+50
+75
+100
+Activation
+%ofpixels
+50 30 10 50 30 10 50 30 10 50 30 10 50 30 10 50 30 10 50 30 10 50 30 10 50 30 10
+Input layer Final layer
+Grad GB IxG IntGrad LRP RISE Occlusion Cam GradCam GradCam++ AblationCam LayerCam
+ShadingLogic(LRP)
+Certified”1”(Darkest) Certified”0”(Medium) Abstain”⊘”(Lightest)
+Figure10:Comparisonoftheper-pixelcertificationrate(%certified)againstsparsificationvaluesKonall5models
+acrossbackpropagation,activationandperturbationmethods. (Left)showsevaluationattheinputand(Right)atthe
+finallayer.
+15
+Pixel-levelCertifiedExplanationsviaRandomizedSmoothing
+B.2.CertifiedLocalization(CertifiedGridPG)
+0.10 0.17 0.22 Certifiedradius(R)atK=50%
+0.00
+0.25
+0.50
+0.75
+1.00
+Backpropagation
+C-GridPG
+ResNet-18
+0.10 0.17 0.22
+W-ResNet-50-2
+0.10 0.17 0.22
+ResNet-152
+0.10 0.17 0.22
+VGG11
+0.10 0.17 0.22
+ViT-B/16
+0.10 0.17 0.22
+ResNet-18
+0.10 0.17 0.22
+W-ResNet-50-2
+0.10 0.17 0.22
+ResNet-152
+0.10 0.17 0.22
+VGG11
+0.10 0.17 0.22
+ViT-B/16
+0.10 0.17 0.22 Certifiedradius(R)atK=50%
+0.00
+0.25
+0.50
+0.75
+1.00
+Perturbation
+C-GridPG
+0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22
+0.10 0.17 0.22 Certifiedradius(R)atK=50%
+0.00
+0.25
+0.50
+0.75
+1.00
+Activation
+C-GridPG
+0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22 0.10 0.17 0.22
+Input layer Final layer
+random
+baseline Grad GB IxG IntGrad LRP RISE Occlusion Cam GradCam GradCam++ AblationCam LayerCam
+Figure11:Comparisonofthecertifiedlocalization(CertifiedGridPG)againstthecertifiedradiusRonall5models
+acrossbackpropagation,activationandperturbationmethods. (Left)showsevaluationattheinputand(Right)atthe
+finallayer.
+50 30 10 Sparsificationparameter(K)atR=0.10
+0.00
+0.25
+0.50
+0.75
+1.00
+Backpropagation
+C-GridPG
+ResNet-18
+50 30 10
+W-ResNet-50-2
+50 30 10
+ResNet-152
+50 30 10
+VGG11
+50 30 10
+ViT-B/16
+50 30 10
+ResNet-18
+50 30 10
+W-ResNet-50-2
+50 30 10
+ResNet-152
+50 30 10
+VGG11
+50 30 10
+ViT-B/16
+50 30 10 Sparsificationparameter(K)atR=0.10
+0.00
+0.25
+0.50
+0.75
+1.00
+Perturbation
+C-GridPG
+50 30 10 50 30 10 50 30 10 50 30 10 50 30 10 50 30 10 50 30 10 50 30 10 50 30 10
+50 30 10 Sparsificationparameter(K)atR=0.10
+0.00
+0.25
+0.50
+0.75
+1.00
+Activation
+C-GridPG
+50 30 10 50 30 10 50 30 10 50 30 10 50 30 10 50 30 10 50 30 10 50 30 10 50 30 10
+Input layer Final layer
+random
+baseline Grad GB IxG IntGrad LRP RISE Occlusion Cam GradCam GradCam++ AblationCam LayerCam
+Figure12:Comparisonofthecertifiedlocalization(CertifiedGridPG)againstthesparsificationvaluesKonall5
+modelsacrossmethods. (Left)showsevaluationattheinputand(Right)atthefinallayer.
+InputlayerInFigures11and12,backpropagationandperturbationmethodsdemonstrateeffectivelocalizationattheinput
+layeracrossallmodels,exceptVGG-11.ThisislikelyduetotheabsenceofskipconnectionsinVGG-11,whichhampers
+gradientflowandimpedessignalpropagationtotheinput. Incontrast,activation-basedmethodsperformworsethanrandom
+acrossallmodels,astheyrelysolelyonhigh-levelforwardactivationsfromthefinallayers,lackingdirectcorrespondence
+withinputpixels.
+Final layerAt thefinal layer,allattributionmethodsgenerallyyieldhigher localizationscorescomparedtotheinput
+layer,asshowninFigures11and12.Thisimprovement isparticularlyevident inactivationandperturbationmethods,
+whichalignbetterwiththespatialstructureoffinal-layerfeatures.However,exceptionsareobservedinGradandGuided
+Backpropagation(GB),whichunderperformrelativetoothermethods.
+16
+Pixel-levelCertifiedExplanationsviaRandomizedSmoothing
+C.Impactofvaryingthecertificationstrictness(hyperparameterτ)
+Oneofthehyperparametersinourcertificationsetupisτ∈(0.5,1],whichsetsathresholdforthetopclassprobabilityofa
+pixeltocertifyit(discussedinSection4.2anddefinedinEq.5).Thehigherthevalueofτ,themorestrictthecertification
+conditionis.Weinvestigatetheeffectofincreasingτon%certifiedandCertifiedGridPGofallattributionmethodsinFigure
+13.
+0.60 0.75 0.95 Topclassprobability(τ)
+0
+25
+50
+75
+100
+Backpropagation
+%ofpixels
+ResNet-18
+0.60 0.75 0.95
+W-ResNet-50-2
+0.60 0.75 0.95
+ResNet-152
+0.60 0.75 0.95
+VGG11
+0.60 0.75 0.95
+ViT-B/16
+0.60 0.75 0.95
+ResNet-18
+0.60 0.75 0.95
+W-ResNet-50-2
+0.60 0.75 0.95
+ResNet-152
+0.60 0.75 0.95
+VGG11
+0.60 0.75 0.95
+ViT-B/16
+0.60 0.75 0.95 Topclassprobability(τ)
+0
+25
+50
+75
+100
+Perturbation
+%ofpixels
+0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95
+0.60 0.75 0.95 Topclassprobability(τ)
+0
+25
+50
+75
+100
+Activation
+%ofpixels
+0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95
+Input layer Final layer
+Grad GB IxG IntGrad LRP RISE Occlusion Cam GradCam GradCam++ AblationCam LayerCam
+ShadingLogic(LRP)
+Certified”1”(Darkest) Certified”0”(Medium) Abstain”⊘”(Lightest)
+(a)Thecertificationrate(%certified)againstthetopclassprobabilityvaluesτ.
+0.60 0.75 0.95 Topclassprobability(τ)
+0.00
+0.25
+0.50
+0.75
+1.00
+Backpropagation
+C-GridPG
+ResNet-18
+0.60 0.75 0.95
+W-ResNet-50-2
+0.60 0.75 0.95
+ResNet-152
+0.60 0.75 0.95
+VGG11
+0.60 0.75 0.95
+ViT-B/16
+0.60 0.75 0.95
+ResNet-18
+0.60 0.75 0.95
+W-ResNet-50-2
+0.60 0.75 0.95
+ResNet-152
+0.60 0.75 0.95
+VGG11
+0.60 0.75 0.95
+ViT-B/16
+0.60 0.75 0.95 Topclassprobability(τ)
+0.00
+0.25
+0.50
+0.75
+1.00
+Perturbation
+C-GridPG
+0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95
+0.60 0.75 0.95 Topclassprobability(τ)
+0.00
+0.25
+0.50
+0.75
+1.00
+Activation
+C-GridPG
+0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95 0.60 0.75 0.95
+Input layer Final layer
+random
+baseline Grad GB IxG IntGrad LRP RISE Occlusion Cam GradCam GradCam++ AblationCam LayerCam
+(b)CertifiedGridPGagainstthetopclassprobablityvaluesτ.
+Figure13:Theperformanceofattributionmethodsintermsof%certified(a)andCertifiedGridPG(b)byincreasingthetop
+classprobabilityτ(makingthecertificationmorestrict)
+Effectofτon%certified InFigure13,weobservethatincreasingτ lowersthecertificationrateofallmethods,except
+forGradandGBatthefinallayer,sincetheyproducealmostconstantgrid-likepatternsatthatlayerinResNet18.Atthe
+highestvalueofτ=0.95,theperformanceofallmethodsdropsto0,indicatingfortheneedofincreasingthenumberof
+samplestobeabletocertifyunderthestrictconditionimposedbyahighτ.
+17
+Pixel-level Certified Explanations via Randomized Smoothing
+Effect of τ on Certified GridPG In Figure 13 (b), interestingly, increasing τ from 0.60 to 0.75 boosts the localization
+performance of all methods (with the exception of activation methods completely failing at the input layer). This indicates
+that by imposing a more strict certification setup, only the most confident pixels are certified to top K% in attribution output,
+which also localizes better. Hence, we use a default value of τ = 0.75 throughout the paper.
+D. GridPG and Certified GridPG
+To understand how attribution methods maintain localization under input noise, we analyze the relationship between the
+original localization score (GridPG) and the certified localization score (Certified GridPG) in Figure 14. This comparison
+helps assess the robustness of each method’s localization ability when subjected to noise during certification. At the input
+layer (Figure 14, top), LRP outperforms all methods, striking a balance in both metrics. Backpropagation-based and
+activation-based methods exhibit a higher Certified GridPG than their respective GridPG scores. This increase may be
+attributed to the certification process rejecting incorrect positive evidence located outside the correct subimage in the grid,
+thereby boosting the certified localization score. At the final layer (Figure 14, bottom), RISE is the only method that
+achieves a higher Certified GridPG than GridPG, demonstrating its ability to improve localization when subjected to input
+noise. Meanwhile, all other methods roughly lie on the diagonal, showing equal values of Certified GridPG and GridPG.
+GradCam achieves the highest scores in both GridPG and Certified GridPG (with the exception of ViT-B/16), indicating that
+its localization performance remains consistent between the raw and certified outputs.
+ResNet-18
+Certified GridPG
+1
+0.75
+Input
+GridPG
+0.50
+0.25
+0
+1
+W-ResNet-50-2
+Certified GridPG
+ResNet-152
+Certified GridPG
+VGG11
+Certified GridPG
+0.75
+Final
+GridPG
+0.50
+0.25
+0
+ViT-B/16
+Certified GridPG
+0
+0.25
+0.50
+0.75
+1
+0
+0.25
+0.50
+Best GB
+0.75
+IntGrad
+Grad IxG LRP
+1
+0
+0.25
+RISE
+Occlusion
+0.50
+0.75
+Cam
+1
+0
+GradCam
+0.25
+0.50
+0.75
+GradCam++
+AblationCam
+1
+0
+0.25
+0.50
+LayerCam
+0.75
+1
+Figure 14: The performance of attribution methods on ResNet18 in terms of original GridPG score against Certified GridPG.
+E. Impact of varying sparsification and certified radius on certified visuals
+Wepresent qualitative examples showing the certified visuals on ResNet-18 (Figures 15 and 16) and additionally ResNet-152
+(Figures 17 and 18) of all attribution methods by varying the sparsification parameter (K = 50%, 25%, 10% and 5%) and
+certified radius (R = 0.10,0.17,0.22).
+As the radius R increases with higher noise levels (σ), all methods abstain more and certify fewer top K% pixels. Amongst
+backpropagation-based methods, only LRP, Grad and GB show certified top K% pixels in the overlayed output, whilst IxG
+and IntGrad almost abstain from all top K% pixels at all radii. A notable observation is that activation-based methods show
+high-quality overlayed certified maps across all noise levels (certified radii) on both models ResNet-18 and ResNet-152.
+Perturbation-based methods maintian high-quality overlayed maps across all certified radii.
+18
+Pixel-level Certified Explanations via Randomized Smoothing
+As K decreases, fewer pixels are certified within the top K%, while more pixels fall within the lower (100 − K)% across
+methods. At smaller K values (e.g., K = 5%), most methods highlight more distinctive features. Overlaying certified
+attribution maps across different K values offers insights into the relative pixel importance for each method.
+19
+Pixel-levelCertifiedExplanationsviaRandomizedSmoothing
+x+
+R=0.10
+=0.15
+SS K=50%
+Certified
+K=25% K=5% Overlayed
+R=0.10
+=0.15
+SS K=50%
+Certified
+K=25% K=5% Overlayed
+Grad
+R=0.17
+=0.25
+GB
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+IxG
+R=0.17
+=0.25
+IntGrad
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+LRP
+R=0.17
+=0.25
+RISE
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+Occlusion
+R=0.17
+=0.25
+Cam
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+GradCam
+R=0.17
+=0.25
+GradCam++
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+AblationCam
+R=0.17
+=0.25
+LayerCam
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+Bottom (100-K)% Top 50% Top 25% Top 5%
+Figure15:ExampleimageanditscertifiedattributionmapsonResNet-18ofallmethodsatdifferentsparsification
+(K)andcertifiedradiusKvalues.SS(SmoothedSparsified)isevaluatedatK=50%.The”Overlayed”lastcolumn
+showsthecertifiedtopK%pixelsfromrow-wisecertifiedmapsatdifferentKvalues,withlowerKtakingprecedencefor
+eachpixel.
+20
+Pixel-levelCertifiedExplanationsviaRandomizedSmoothing
+x+
+R=0.10
+=0.15
+SS K=50%
+Certified
+K=25% K=5% Overlayed
+R=0.10
+=0.15
+SS K=50%
+Certified
+K=25% K=5% Overlayed
+Grad
+R=0.17
+=0.25
+GB
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+IxG
+R=0.17
+=0.25
+IntGrad
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+LRP
+R=0.17
+=0.25
+RISE
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+Occlusion
+R=0.17
+=0.25
+Cam
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+GradCam
+R=0.17
+=0.25
+GradCam++
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+AblationCam
+R=0.17
+=0.25
+LayerCam
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+Bottom (100-K)% Top 50% Top 25% Top 5%
+Figure16:ExampleimageanditscertifiedattributionmapsonResNet-18ofallmethodsatdifferentsparsification
+(K)andcertifiedradiusKvalues.SS(SmoothedSparsified)isevaluatedatK=50%.The”Overlayed”lastcolumn
+showsthecertifiedtopK%pixelsfromrow-wisecertifiedmapsatdifferentKvalues,withlowerKtakingprecedencefor
+eachpixel.
+21
+Pixel-levelCertifiedExplanationsviaRandomizedSmoothing
+x+
+R=0.10
+=0.15
+SS K=50%
+Certified
+K=25% K=5% Overlayed
+R=0.10
+=0.15
+SS K=50%
+Certified
+K=25% K=5% Overlayed
+Grad
+R=0.17
+=0.25
+GB
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+IxG
+R=0.17
+=0.25
+IntGrad
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+LRP
+R=0.17
+=0.25
+RISE
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+Occlusion
+R=0.17
+=0.25
+Cam
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+GradCam
+R=0.17
+=0.25
+GradCam++
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+AblationCam
+R=0.17
+=0.25
+LayerCam
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+Bottom (100-K)% Top 50% Top 25% Top 5%
+(a)ResNet-18
+x+
+R=0.10
+=0.15
+SS K=50%
+Certified
+K=25% K=5% Overlayed
+R=0.10
+=0.15
+SS K=50%
+Certified
+K=25% K=5% Overlayed
+Grad
+R=0.17
+=0.25
+GB
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+IxG
+R=0.17
+=0.25
+IntGrad
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+LRP
+R=0.17
+=0.25
+RISE
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+Occlusion
+R=0.17
+=0.25
+Cam
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+GradCam
+R=0.17
+=0.25
+GradCam++
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+AblationCam
+R=0.17
+=0.25
+LayerCam
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+Bottom (100-K)% Top 50% Top 25% Top 5%
+(b)ResNet-152
+Figure17:CertifiedattributionmapsonResNet-18(a)andResNet-152(b)ofallmethodsatdifferentsparsification
+(K)andcertifiedradiusKvalues.SS(SmoothedSparsified)isevaluatedatK=50%.The”Overlayed”lastcolumn
+showsthecertifiedtopK%pixelsfromrow-wisecertifiedmapsatdifferentKvalues,withlowerKtakingprecedencefor
+eachpixel.
+22
+Pixel-levelCertifiedExplanationsviaRandomizedSmoothing
+x+
+R=0.10
+=0.15
+SS K=50%
+Certified
+K=25% K=5% Overlayed
+R=0.10
+=0.15
+SS K=50%
+Certified
+K=25% K=5% Overlayed
+Grad
+R=0.17
+=0.25
+GB
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+IxG
+R=0.17
+=0.25
+IntGrad
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+LRP
+R=0.17
+=0.25
+RISE
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+Occlusion
+R=0.17
+=0.25
+Cam
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+GradCam
+R=0.17
+=0.25
+GradCam++
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+AblationCam
+R=0.17
+=0.25
+LayerCam
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+Bottom (100-K)% Top 50% Top 25% Top 5%
+(a)ResNet-18
+x+
+R=0.10
+=0.15
+SS K=50%
+Certified
+K=25% K=5% Overlayed
+R=0.10
+=0.15
+SS K=50%
+Certified
+K=25% K=5% Overlayed
+Grad
+R=0.17
+=0.25
+GB
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+IxG
+R=0.17
+=0.25
+IntGrad
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+LRP
+R=0.17
+=0.25
+RISE
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+Occlusion
+R=0.17
+=0.25
+Cam
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+GradCam
+R=0.17
+=0.25
+GradCam++
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+R=0.10
+=0.15
+R=0.10
+=0.15
+AblationCam
+R=0.17
+=0.25
+LayerCam
+R=0.17
+=0.25
+R=0.22
+=0.33
+R=0.22
+=0.33
+Bottom (100-K)% Top 50% Top 25% Top 5%
+(b)ResNet-152
+Figure18:ExampleimageanditscertifiedattributionmapsonResNet-18(a)andResNet-152(b)ofallmethodsat
+differentsparsification(K)andcertifiedradiusKvalues.SS(SmoothedSparsified)isevaluatedatK=50%.The
+”Overlayed”lastcolumnshowsthecertifiedtopK%pixelsfromrow-wisecertifiedmapsatdifferentKvalues,withlower
+Ktakingprecedenceforeachpixel.
+23
+Pixel-levelCertifiedExplanationsviaRandomizedSmoothing
+F.CertifiedattributionvisualsonViT-B/16
+Input Grad
+SS K=50%
+Certified
+K=25% K=5% Overlayed
+GB IxG IntGrad RISE Occlusion GradCam GradCam++ Abl.Cam LayerCam
+0 Top 50% Top 25% Top 5%
+(a)
+Input Grad
+SS K=50%
+Certified
+K=25% K=5% Overlayed
+GB IxG IntGrad RISE Occlusion GradCam GradCam++ Abl.Cam LayerCam
+0 Top 50% Top 25% Top 5%
+(b)
+Figure19:CertifiedattributionmapsofViT-B/16ofallmethodsatdifferentsparsificationparameter(K)values.SS
+(SmoothedSparsified)isevaluatedonn=100noisyinputsamplesperimageandatK=50%.The“Overlayed”column
+showscertifiedtopK%pixelsperrow,withlowerKtakingprecedence.
+24
+Pixel-levelCertifiedExplanationsviaRandomizedSmoothing
+SS Certified SS Certified SS Certified SS Certified SS Certified SS Certified SS Certified SS Certified SS Certified
+Grad GB IxG IntGrad RISE GradCam GradCam++ AblationCam LayerCam
+Top 50% Top 25% Top 10% Top 5%
+Figure20:OverlayedcertifiedattributionsonViT-B/16atdifferentKvaluesacrossmethods.SS(SmoothedSparsified),
+whichreferstotheaverageofthesparsifiedattributions, isevaluatedonn=100noisyinputsamplesperimageandat
+K=50%.
+25
+Pixel-level Certified Explanations via Randomized Smoothing
+G. Qualitative Evaluation of Certified Localization
+In this section, we present qualitative results using the AggAtt layout introduced by Rao et al. (2022), and adapting it
+for attribution methods evaluated on Certified GridPG at input and final layers. AggAtt (Rao et al., 2022) is a qualitative
+evaluation method that generates aggregate attribution maps by sorting maps based on their localization scores and grouping
+them into percentile bins. These bins, with smaller sizes for the top and bottom percentiles, highlight both the best and
+worst-case performance of attribution methods. This approach provides a comprehensive view of method performance
+across diverse inputs, emphasizing both consistent trends and distinct failure cases.
+In Figures 21 and 22, we show an example from the median position of each AggAtt (Rao et al., 2022) bin for each
+attribution method at the input and final layers, respectively, evaluated on Certified GridPG at the top-left grid cell using
+ResNet-18 (He et al., 2016).
+At the input layer, backpropagation-based methods show relatively better localization in the top-left grid cell. LRP
+(Bach et al., 2015) shows the best localization across these methods, followed by Grad (Simonyan, 2014). Meanwhile, GB
+(Springenberg et al., 2014) seems to mainly highlight edges in the input irrespective of the grid cell, and IxG (Shrikumar
+et al., 2017) and IntGrad (Sundararajan et al., 2017) only have very few pixels certified top K% pixels within the top-left
+grid cell. Activation-based methods show poor performance by almost abstaining from the entire grid. This aligns with the
+poor quantitative performance of these methods at the input layer in Figure 6.
+26
+Pixel-levelCertifiedExplanationsviaRandomizedSmoothing
+Grad
+GB
+IxG
+IntGrad
+LRP
+RISE
+Occlusion
+Cam
+GradCam
+GradCam++
+AblationCam
+LayerCam
+0-2 2-5 5-50 50-95 95-98 98-100
+Input layer
+Figure21:ExamplesfromeachAggAttforallmethodsattheinputlayerusingCertifiedGridPG.Whitedenotes
+certified“0”,blackiscertified“1”andgrayisabstain⊘.Thepercentilebinvaluesaredisplayedatthetopofeverycolumn.
+Defaultvalues:K=50%,R=0.10,τ=0.75andn=100.
+27
+Pixel-levelCertifiedExplanationsviaRandomizedSmoothing
+Atthefinallayer(Figure22),certifiedattributionsfromGrad(Simonyan,2014)andGB(Springenbergetal.,2014)showa
+constantpatternwhereallpixelsarecertifiedasbottom(100−K)%.Thelocalizationoftherestofthemethodsimproves
+considerablycomparedtheinputlayerinFigure21,whichagreeswiththequantitativeresultsfromFigure6.Allother
+methodsshowgoodlocalization,withthebestexamplecomingfromOcclusion(Zeiler&Fergus,2014),whichachieves
+nearperfectlocalizationatthefirst0−2AggAttbin.
+Grad
+GB
+IxG
+IntGrad
+LRP
+RISE
+Occlusion
+Cam
+GradCam
+GradCam++
+AblationCam
+LayerCam
+0-2 2-5 5-50 50-95 95-98 98-100
+Final layer
+Figure22:ExamplesfromeachAggAttforallmethodsatthefinal layerusingCertifiedGridPG.Whitedenotes
+certified“0”,blackiscertified“1”andgrayisabstain⊘.Thepercentilebinvaluesaredisplayedatthetopofeverycolumn.
+Defaultvalues:K=50%,R=0.10,τ=0.75andn=100.
+28
+Pixel-level Certified Explanations via Randomized Smoothing
+Finally, we show the AggAtt (Rao et al., 2022) bins for all methods on Certified GridPG at both layers at different
+sparsification values and certified radii in Figure 23. We see that the AggAtt bins in this comprehensive figure reflect the
+trends in the quantitative results in Figure 5 and Figure 6, as well as the qualitative results in Figure 21 and Figure 22.
+Figure 23: AggAtt Evaluation on Certified GridPG for all attribution methods at the input and final layers across
+sparsification parameters K and certified radii R values

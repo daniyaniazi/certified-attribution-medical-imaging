@@ -1,0 +1,22 @@
+universe                = docker
+docker_image            = nvidia/cuda:12.1.0-runtime-ubuntu22.04
+initialdir              = /home/exml_team007/certified-attribution-medical-imaging
+executable              = execute_certify_chestxray.sh
+transfer_input_files    = execute_certify_chestxray.sh
+arguments               = --checkpoint_dir outputs/checkpoints/chestxray --data_root data/raw/chestxray --split val --certify_dir outputs/certifications/chestxray --heatmap_dir outputs/certifications/chestxray/certified_maps --num_images 5 --num_samples 100 --batch_size 16 --sigma 0.15 --tau 0.75 --alpha 0.001 --k_percents 50 25 5 --save_noisy_samples --panel_examples 3 --models resnet18 efficientnet_b1 mobilenet_v2 densenet121
+environment             = "PROJECT_ROOT=/home/exml_team007/certified-attribution-medical-imaging CONDA_PYTHON_BINARY_PATH=/home/exml_team007/miniconda3/envs/certified-attribution-medical-imaging/bin/python PYTHON_SCRIPT=certify_chestxray_server.py"
+
+output                  = /home/exml_team007/condor_logs/certify_chestxray.$(ClusterId).$(ProcId).out
+error                   = /home/exml_team007/condor_logs/certify_chestxray.$(ClusterId).$(ProcId).err
+log                     = /home/exml_team007/condor_logs/certify_chestxray.$(ClusterId).log
+
+should_transfer_files   = YES
+when_to_transfer_output = ON_EXIT
+
+request_GPUs  = 1
+request_CPUs  = 4
+request_memory = 16G
+request_disk   = 10G
+requirements = UidDomain == "cs.uni-saarland.de"
++WantGPUHomeMounted = true
+queue 1
