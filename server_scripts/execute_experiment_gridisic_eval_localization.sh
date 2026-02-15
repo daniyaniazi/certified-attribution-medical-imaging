@@ -11,7 +11,7 @@ PYTHON_SCRIPT="server_scripts/experiment_gridisic_eval_localization.py"
 cd "$PROJECT_ROOT"
 echo "Running Grid ISIC Localization Evaluation: $PYTHON_SCRIPT with Python: $CONDA_PYTHON_BINARY_PATH" >&2
 "$CONDA_PYTHON_BINARY_PATH" "$PYTHON_SCRIPT" \
-    --cert_results outputs/bulk_certifcation/grid/isic_2/resnet18/cert_results.pkl \
+    --cert_results outputs/bulk_certifcation/grid_4/isic/resnet18/results_20260113_013345.pkl \
     --grid_metadata data/raw/grid/isic/metadata.json \
     --output_dir outputs/eval/grid/isic \
     --model_name resnet18 \
