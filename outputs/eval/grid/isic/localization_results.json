@@ -1,0 +1,87 @@
+{
+  "GradCAM": {
+    "50": {
+      "mean_gridpg": 0.306670520662633,
+      "std_gridpg": 0.27635879763964216,
+      "num_images": 32
+    },
+    "25": {
+      "mean_gridpg": 0.32922764804781474,
+      "std_gridpg": 0.3199402543364668,
+      "num_images": 32
+    },
+    "5": {
+      "mean_gridpg": 0.42039560395784226,
+      "std_gridpg": 0.42875482655227204,
+      "num_images": 32
+    }
+  },
+  "IntegratedGradients": {
+    "50": {
+      "mean_gridpg": 0.1845162503124006,
+      "std_gridpg": 0.30125188834227007,
+      "num_images": 32
+    },
+    "25": {
+      "mean_gridpg": 0.0,
+      "std_gridpg": 0.0,
+      "num_images": 32
+    },
+    "5": {
+      "mean_gridpg": 0.0,
+      "std_gridpg": 0.0,
+      "num_images": 32
+    }
+  },
+  "LRP": {
+    "50": {
+      "mean_gridpg": 0.26912481450870707,
+      "std_gridpg": 0.08908238261207814,
+      "num_images": 32
+    },
+    "25": {
+      "mean_gridpg": 0.26536480184780065,
+      "std_gridpg": 0.18147758745681605,
+      "num_images": 32
+    },
+    "5": {
+      "mean_gridpg": 0.19502696469177133,
+      "std_gridpg": 0.24489188710447246,
+      "num_images": 32
+    }
+  },
+  "Occlusion": {
+    "50": {
+      "mean_gridpg": 0.33573384684385865,
+      "std_gridpg": 0.3377098995658655,
+      "num_images": 32
+    },
+    "25": {
+      "mean_gridpg": 0.3542116690019718,
+      "std_gridpg": 0.3968695673226839,
+      "num_images": 32
+    },
+    "5": {
+      "mean_gridpg": 0.29373193414774024,
+      "std_gridpg": 0.4314552936276136,
+      "num_images": 32
+    }
+  },
+  "RISE": {
+    "50": {
+      "mean_gridpg": 0.0,
+      "std_gridpg": 0.0,
+      "num_images": 32
+    },
+    "25": {
+      "mean_gridpg": 0.0,
+      "std_gridpg": 0.0,
+      "num_images": 32
+    },
+    "5": {
+      "mean_gridpg": 0.0,
+      "std_gridpg": 0.0,
+      "num_images": 32
+    }
+  }
+}
