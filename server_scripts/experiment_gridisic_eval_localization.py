@@ -18,6 +18,7 @@ Outputs:
 import argparse
 import os
 import sys
+import torch
 from pathlib import Path
 import json
 import pickle
@@ -29,7 +30,19 @@ from collections import defaultdict
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from certify.eval.localization import LocalizationEvaluator
+from certify.eval.localization import LocalizationEvaluator as BaseLocalizationEvaluator
+
+
+class LocalizationEvaluator(BaseLocalizationEvaluator):
+    """Override to skip model loading since not needed for GridPG evaluation."""
+    
+    def __init__(self, dataset_name, model_name, checkpoint_dir, device=None):
+        """Initialize without loading model (not used in evaluate_batch)."""
+        self.dataset_name = dataset_name
+        self.model_name = model_name
+        self.checkpoint_dir = checkpoint_dir
+        self.device = device or ('cuda' if torch.cuda.is_available() else 'cpu')
+        self.model = None  # Skip model loading for localization eval
 
 
 def parse_args():
@@ -105,7 +118,7 @@ def main():
     evaluator = LocalizationEvaluator(
         model_name=args.model_name,
         dataset_name="grid_isic",
-        checkpoint_dir=str(output_dir)
+        checkpoint_dir="outputs/checkpoints/isic/"
     )
     
     # Run evaluation
