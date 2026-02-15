@@ -100,9 +100,11 @@ def main():
     print()
     
     # Initialize evaluator
+    checkpoint_dir = os.path.join("outputs", "checkpoints", "isic", args.model_name)
     evaluator = LocalizationEvaluator(
         model_name=args.model_name,
-        dataset_name="grid_isic"
+        dataset_name="grid_isic",
+        checkpoint_dir=checkpoint_dir
     )
     
     # Run evaluation
