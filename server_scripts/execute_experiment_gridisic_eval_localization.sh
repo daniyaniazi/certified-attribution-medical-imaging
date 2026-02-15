@@ -12,7 +12,7 @@ cd "$PROJECT_ROOT"
 echo "Running Grid ISIC Localization Evaluation: $PYTHON_SCRIPT with Python: $CONDA_PYTHON_BINARY_PATH" >&2
 "$CONDA_PYTHON_BINARY_PATH" "$PYTHON_SCRIPT" \
     --cert_results outputs/bulk_certifcation/grid_4/isic/resnet18/results_20260113_013345.pkl \
-    --grid_metadata data/raw/grid/isic/metadata.json \
+    --grid_metadata data/raw/grid/isic/val/metadata.json \
     --output_dir outputs/eval/grid/isic \
     --model_name resnet18 \
     --save_per_k_plots "$@"
