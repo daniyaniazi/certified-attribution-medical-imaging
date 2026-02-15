@@ -16,6 +16,7 @@
 \usepackage{graphicx}
 \usepackage{subcaption}
 \usepackage{placeins}
+\usepackage{float}
 
 % For proper rendering and hyphenation of words containing Latin characters (including in bib files)
 \usepackage[T1]{fontenc}
@@ -142,13 +143,11 @@ Given image $x$, the pipeline: (1) compute attribution heatmap, (2) keep top $K\
 \end{algorithmic}
 \end{algorithm}
 
-\subsubsection{Settings}
 
 All experiments use: $\sigma = 0.15$, $n = 100$, $\tau = 0.75$, $K \in \{5\%, 25\%, 50\%\}$, certified radius $R \approx 0.101$.
 
 
-\subsection{Implementation Notes}
-Two adjustments: (1) explicit pixel ranking for top-$K$, (2) multi-head DiFull wrapper for grid evaluation.
+\section{Implementation}
 
 \subsection{Dataset Details and Characteristics}
 
@@ -213,20 +212,19 @@ All datasets were split into training, validation, and test sets using an 80/10/
 \hline
 \textbf{Dataset} & \textbf{Image Modality} & \textbf{Train-Test-Val Split} & \textbf{Image Size} \\
 \hline
-ChestX-ray14 & X-ray (grayscale) & $80-$10-$10\% & $224 \times 224$ \\
+ChestX-ray14 & X-ray (grayscale) & 80-10-10\% & $224 \times 224$ \\
 \hline
-Brain MRI Tumor & MRI & 80-$10-$10\% & $224 \times 224$ \\
+Brain MRI Tumor & MRI & 80-10-10\% & $224 \times 224$ \\
 \hline
-APTOS 2019 & Fundus photography& $80-$10-$10\% & $224 \times 224$ \\
+APTOS 2019 & Fundus photography& 80-10-10\% & $224 \times 224$ \\
 \hline
-ISIC Skin Lesion & Dermoscopic images & $80-$10-$10\% & $224 \times 224$ \\
+ISIC Skin Lesion & Dermoscopic images & 80-10-10\% & $224 \times 224$ \\
 \hline
 \end{tabularx}
 \label{tab:dataset_summary}
 \end{table}
 
 
-\newpage
 \subsection{Model Architecture Selection and Training Results}
 
 This section presents a consolidated comparison of convolutional neural network (CNN) architectures evaluated across multiple medical imaging datasets. Instead of reporting dataset-specific results in separate paragraphs, validation accuracy is summarized in a single table to facilitate direct comparison across models and modalities. This analysis informs the selection of representative architectures for subsequent certified attribution experiments.
@@ -273,31 +271,26 @@ ISIC Skin Lesion
 
 \begin{figure}[H]
 \centering
-\begin{subfigure}{0.22\linewidth}
-    \centering
-    \includegraphics[width=\linewidth]{confusion matrix/brain_mri_confusion_matrix.png}
-    \caption{Sample 1}
-\end{subfigure}
-\hfill
-\begin{subfigure}{0.22\linewidth}
-    \centering
-    \includegraphics[width=\linewidth]{confusion matrix/chestxray_confusion_matrix.png}
-    \caption{Sample 2}
-\end{subfigure}
-\hfill
-\begin{subfigure}{0.22\linewidth}
-    \centering
-    \includegraphics[width=\linewidth]{confusion matrix/confusion_matrix.png}
-    \caption{Sample 3}
-\end{subfigure}
-\begin{subfigure}{0.22\linewidth}
-    \centering
-    \includegraphics[width=\linewidth]{confusion matrix/fundus_confusion_matrix.png}
-    \caption{Sample 3}
-\end{subfigure}
+\includegraphics[width=1\linewidth]{confusion matrix/brain_mri_confusion_matrix.png}
+\caption{Confusion Matrix - Brain MRI}
+\end{figure}
 
-\caption{Confusion Matrix of ResNet18 model across the datasets}
-\label{fig:brain_attr}
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{confusion matrix/chestxray_confusion_matrix.png}
+\caption{Confusion Matrix - Chest X-ray}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{confusion matrix/confusion_matrix.png}
+\caption{Confusion Matrix - ISIC}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{confusion matrix/fundus_confusion_matrix.png}
+\caption{Confusion Matrix - APTOS Fundus}
 \end{figure}
 
 
@@ -457,6 +450,7 @@ Occlusion uses square patches of size $16 \times 16$ with a stride of 8 pixels, 
 Occlusion-based methods are highly sensitive to patch alignment. Small input shifts change which regions are occluded, leading to unstable attribution maps. Combined with high computational cost, this explains the low certification rates (12--22\%) observed.
 
 
+
 % =========================================================
 \subsection{Attribution Visualization Across Datasets}
 % =========================================================
@@ -466,97 +460,61 @@ This section presents qualitative attribution visualizations across datasets. Fo
 \subsubsection{Brain MRI Tumor}
 \begin{figure}[H]
 \centering
-
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=\linewidth]{attribution sample/brainatt1resnet18.png}
-    \caption{Sample 1}
-\end{subfigure}
-
-\vspace{1em} % control vertical gap
-
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=\linewidth]{attribution sample/brainattr2resnet18.png}
-    \caption{Sample 2}
-\end{subfigure}
-
-\caption{Attribution visualizations for Brain MRI samples using ResNet-18. 
-Each row corresponds to one sample. Within each image (left to right): input image, Integrated Gradients, Grad-CAM, RISE, Occlusion, and LRP.}
-\label{fig:brain_attr}
+\includegraphics[width=1\linewidth]{attribution sample/brainatt1resnet18.png}
+\caption{Attribution visualizations for Brain MRI Sample 1 using ResNet-18. From left to right: input image, Integrated Gradients, Grad-CAM, RISE, Occlusion, and LRP.}
 \end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{attribution sample/brainattr2resnet18.png}
+\caption{Attribution visualizations for Brain MRI Sample 2 using ResNet-18. From left to right: input image, Integrated Gradients, Grad-CAM, RISE, Occlusion, and LRP.}
+\end{figure}
+
+
 
 \subsubsection{Chest X-ray}
 
 \begin{figure}[H]
 \centering
-
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=\linewidth]{attribution sample/chestattrsample1.png}
-    \caption{Sample 1}
-\end{subfigure}
-
-\vspace{1em} % control vertical gap
-
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=\linewidth]{attribution sample/chestattrsample2.png}
-    \caption{Sample 2}
-\end{subfigure}
-
-\caption{Attribution visualizations for an ChestXray images using ResNet-18.}
-\label{fig:aptos_attr}
+\includegraphics[width=1\linewidth]{attribution sample/chestattrsample1.png}
+\caption{Attribution visualizations for Chest X-ray Sample 1 using ResNet-18.}
 \end{figure}
 
-
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{attribution sample/chestattrsample2.png}
+\caption{Attribution visualizations for Chest X-ray Sample 2 using ResNet-18.}
+\end{figure}
 
 
 \subsubsection{APTOS 2019 (DR)}
 
 \begin{figure}[H]
 \centering
-
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=\linewidth]{attribution sample/aptosatt1sample1.png}
-    \caption{Sample 1}
-\end{subfigure}
-
-\vspace{1em} % control vertical gap
-
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=\linewidth]{attribution sample/aptosatt1sample2.png}
-    \caption{Sample 2}
-\end{subfigure}
-\caption{Attribution visualizations for an APTOS 2019 (DR) sample using ResNet-18.}
-\label{fig:isic_attr}
+\includegraphics[width=1\linewidth]{attribution sample/aptosatt1sample1.png}
+\caption{Attribution visualizations for APTOS 2019 (DR) Sample 1 using ResNet-18.}
 \end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{attribution sample/aptosatt1sample2.png}
+\caption{Attribution visualizations for APTOS 2019 (DR) Sample 2 using ResNet-18.}
+\end{figure}
+
 
 \subsubsection{ISIC Skin Lesion }
 
 \begin{figure}[H]
 \centering
-
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=\linewidth]{attribution sample/skinattr1.png}
-    \caption{Sample 1}
-\end{subfigure}
-
-\vspace{1em} % control vertical gap
-
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=\linewidth]{attribution sample/skinsample2.png}
-    \caption{Sample 2}
-\end{subfigure}
-\caption{Attribution visualizations for an ISIC Skin Lesion sample using ResNet-18.}
-\label{fig:isic_attr}
+\includegraphics[width=1\linewidth]{attribution sample/skinattr1.png}
+\caption{Attribution visualizations for ISIC Skin Lesion Sample 1 using ResNet-18.}
 \end{figure}
 
-\newpage
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{attribution sample/skinsample2.png}
+\caption{Attribution visualizations for ISIC Skin Lesion Sample 2 using ResNet-18.}
+\end{figure}
 
 
 \subsection{Certification Visualization Across Datasets with ResNet-18}
@@ -571,56 +529,39 @@ Specifically, for each image, we generate $N = 100$ noisy samples of the form
 \[
 x^{(i)} = x + \epsilon^{(i)}, \quad \epsilon^{(i)} \sim \mathcal{N}(0, \sigma^2 I),
 \]
-where $\sigma = 0.15$ is fixed for all experiments. For each noisy sample, the attribution method is recomputed, producing a set of noisy attribution maps that are subsequently aggregated into a smoothed sparsified (SS) attribution.
+where $\sigma = 0.15$ is fixed for all experiments. For each noisy sample, the attribution method is recomputed, producing a set of noisy attribution maps that are subsequently aggregated into a smoothed sparsified (SS) attribution using the Top-K sparsification procedure described in Algorithm~\ref{alg:topk_sparsification}.
 
-Certification is performed by thresholding the smoothed attribution according to a confidence parameter $\tau = 0.75$. A pixel is considered \emph{certified} if its attribution label remains consistently above the threshold across noisy samples within the certified radius induced by $\sigma$. Pixels that do not meet this consistency requirement are marked as abstained. Certification is evaluated at three sparsity levels corresponding to the top $K=\{5\%, 25\%, 50\%\}$ most salient pixels.
+Certification is performed following the randomized smoothing approach (Algorithm~\ref{alg:randomized_smoothing}) by thresholding the smoothed attribution according to a confidence parameter $\tau = 0.75$. A pixel is considered \emph{certified} if its attribution label remains consistently above the threshold across noisy samples within the certified radius induced by $\sigma$, as formalized in Algorithm~\ref{alg:certification}. Pixels that do not meet this consistency requirement are marked as abstained. Certification is evaluated at three sparsity levels corresponding to the top $K=\{5\%, 25\%, 50\%\}$ most salient pixels.
 
 The same certification parameters ($\sigma$, $N$, $\tau$, and $K$ values) are applied uniformly across all datasets and models. This standardized setup ensures that observed differences in certification behavior are attributable to dataset characteristics or attribution methods rather than hyperparameter tuning.
 
-\FloatBarrier
+
 \subsubsection{Brain MRI Tumor}
 \begin{figure}[H]
 \centering
+\includegraphics[width=1\linewidth]{certifcation/mri/resnet18_img5_paper_style.png}
+\caption{Certification visualizations for Brain MRI Sample 1 using ResNet-18.}
+\end{figure}
 
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=0.8\linewidth]{certifcation/mri/resnet18_img5_paper_style.png}
-    \caption{Sample 1}
-\end{subfigure}
-
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=0.8\linewidth]{certifcation/mri/resnet18_img59_paper_style.png}
-    \caption{Sample 2}
-\end{subfigure}
-
-\caption{Certification visualizations for Brain MRI samples using ResNet-18. 
-Each row corresponds to one sample. Within each image (left to right): input image, Integrated Gradients, Grad-CAM, RISE, Occlusion, and LRP.}
-\label{fig:brain_attr}
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{certifcation/mri/resnet18_img59_paper_style.png}
+\caption{Certification visualizations for Brain MRI Sample 2 using ResNet-18.}
 \end{figure}
 
 \subsubsection{Chest X-ray}
 
 \begin{figure}[H]
 \centering
-
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=0.8\linewidth]{certifcation/chest/resnet18_img117_paper_style.png}
-    \caption{Sample 1}
-\end{subfigure}
-
-
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=0.8\linewidth]{certifcation/chest/resnet18_img31_paper_style.png}
-    \caption{Sample 2}
-\end{subfigure}
-
-\caption{Certification visualizations for an ChestXray images using ResNet-18.}
-\label{fig:aptos_attr}
+\includegraphics[width=1\linewidth]{certifcation/chest/resnet18_img117_paper_style.png}
+\caption{Certification visualizations for Chest X-ray Sample 1 using ResNet-18.}
 \end{figure}
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{certifcation/chest/resnet18_img31_paper_style.png}
+\caption{Certification visualizations for Chest X-ray Sample 2 using ResNet-18.}
+\end{figure}
 
 
 
@@ -628,41 +569,32 @@ Each row corresponds to one sample. Within each image (left to right): input ima
 
 \begin{figure}[H]
 \centering
-
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=0.8\linewidth]{certifcation/fundus/resnet18_img146_paper_style.png}
-    \caption{Sample 1}
-\end{subfigure}
-
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=0.8\linewidth]{certifcation/fundus/resnet18_img65_paper_style.png}
-    \caption{Sample 2}
-\end{subfigure}
-\caption{Certification visualizations for an APTOS 2019 (DR) sample using ResNet-18.}
-\label{fig:isic_attr}
+\includegraphics[width=1\linewidth]{certifcation/fundus/resnet18_img146_paper_style.png}
+\caption{Certification visualizations for APTOS 2019 (DR) Sample 1 using ResNet-18.}
 \end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{certifcation/fundus/resnet18_img65_paper_style.png}
+\caption{Certification visualizations for APTOS 2019 (DR) Sample 2 using ResNet-18.}
+\end{figure}
+
+
 
 \subsubsection{ISIC Skin Lesion }
 
 \begin{figure}[H]
 \centering
-
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=0.8\linewidth]{certifcation/isic/resnet18_img185_paper_style.png}
-    \caption{Sample 1}
-\end{subfigure}
-
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=0.8\linewidth]{certifcation/isic/resnet18_img371_paper_style.png}
-    \caption{Sample 2}
-\end{subfigure}
-\caption{Certification visualizations for an ISIC Skin Lesion sample using ResNet-18.}
-\label{fig:isic_attr}
+\includegraphics[width=1\linewidth]{certifcation/isic/resnet18_img185_paper_style.png}
+\caption{Certification visualizations for ISIC Skin Lesion Sample 1 using ResNet-18.}
 \end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{certifcation/isic/resnet18_img371_paper_style.png}
+\caption{Certification visualizations for ISIC Skin Lesion Sample 2 using ResNet-18.}
+\end{figure}
+
 
 \subsection{Experiment 1 for Pixel-Level Certification: Cross-Architecture Comparison}
 
@@ -690,9 +622,9 @@ Experiment 1 evaluates all 4 architectures on a smaller subset (5 images per dat
 \multirow{4}{*}{All} 
 & ResNet-18     
 & 92.90 & 49.71 & 36.51 
-& 93.28 & 613 & 513 
+& 93.28 & 61.3 & 51.3 
 & 89.84 & 45.36 & 31.97 
-& 79.95 & 35.90 & 314 \\
+& 79.95 & 35.90 & 31.4 \\
 
 & DenseNet-121  
 & 91.24 & 35.81 & 25.00 
@@ -715,7 +647,7 @@ Experiment 1 evaluates all 4 architectures on a smaller subset (5 images per dat
 \bottomrule
 \end{tabular}
 }
-\end{table*}
+\end{table}
 As expected, certification accuracy decreases monotonically as the certified pixel fraction $K$ increases, reflecting the increasing difficulty of guaranteeing robustness for larger attribution regions.Among all, Brain MRI consistently achieves the highest certification rates, while fundus and ISIC exhibit lower robustness due to class difference, color and texture complexity. 
 
 
@@ -730,7 +662,7 @@ As expected, certification accuracy decreases monotonically as the certified pix
 Brain MRI   & 67.96 & 300 \\
 ISIC Skin  & 55.47 & 300 \\
 Chest X-ray & 55.25 & 300 \\
-Fundus     & 518 & 300 \\
+Fundus     & 51.8 & 300 \\
 \midrule
 \textbf{Overall} & \textbf{57.31} & \textbf{1200} \\
 \bottomrule
@@ -747,13 +679,15 @@ Fundus     & 518 & 300 \\
 \textbf{Dataset} & \textbf{ResNet-18} & \textbf{DenseNet-121} & \textbf{MobileNetV2} & \textbf{EfficientNet-B1} \\
 \midrule
 Brain MRI   & 68.28 & 68.61 & \textbf{71.49} & 63.47 \\
-Chest X-ray & \textbf{59.70} & 518 & 51.74 & 58.86 \\
+Chest X-ray & \textbf{59.70} & 51.8 & 51.74 & 58.86 \\
 ISIC Skin  & 55.72 & 54.67 & 54.40 & \textbf{57.07} \\
 Fundus     & 48.83 & 46.41 & \textbf{54.22} & 52.86 \\
 \bottomrule
 \end{tabular}
 }
 \end{table}
+
+
 
 \subsection{Experiment 2: Large-Scale Certification with ResNet-18}
 
@@ -772,14 +706,14 @@ While Experiment 1 evaluated certification behavior on a limited subset of image
 Brain MRI   & 93.49 & 61.31 & 49.57 \\
 Chest X-ray & 92.26 & 49.37 & 36.80 \\
 Fundus     & 76.69 & 36.19 & 29.83 \\
-ISIC Skin  & 89.92 & 41.99 & 317 \\
+ISIC Skin  & 89.92 & 41.99 & 31.7 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 Consistent with Experiment 1, certification accuracy decreases monotonically as the certified pixel fraction $K$ increases. Brain MRI remains the most robust dataset, while Fundus and ISIC exhibit lower certification rates due to higher visual complexity and color variation.
 
-\begin{table}[H]
+\begin{table}[h!]
 \centering
 \caption{Experiment 2: Dataset-level average percentage of certified pixels using ResNet-18 across all attribution methods.}
 \label{tab:exp2_dataset_avg}
@@ -798,45 +732,56 @@ Fundus     & 47.57 \\
 \end{table}
 
 
-\subsection{Evaluation: Robustness and Faithfullness}
+\subsection{Evaluation: Robustness and Faithfulness}
+
+This section presents a comprehensive evaluation of certified attributions along two complementary dimensions: robustness and faithfulness. Robustness quantifies the proportion of pixels whose attribution labels remain stable under input perturbations, while faithfulness measures whether certified important pixels actually contribute to the model's prediction.
 
 \subsubsection{Robustness Via \%Certified}
-\subsubsection{Faithfullness Via Certfied Pixel Deletion}
 
+Robustness is evaluated by measuring the percentage of pixels that receive a certified label (either important or unimportant) rather than abstaining. A higher certification rate indicates that the attribution method produces stable, predictable importance assignments that remain consistent under $\ell_2$-bounded perturbations within the certified radius $R = \sigma \Phi^{-1}(\tau) \approx 0.101$.
+For each image, we compute:
+$$
+\text{Robustness} = \frac{\#\{\text{certified pixels (important or unimportant)}\}}{\text{total pixels}} \times 100\%
+$$
+
+Robustness decreases monotonically as the sparsity parameter $K$ increases, since maintaining consistent top-$K$ rankings becomes more difficult for larger $K$. Attribution methods with inherent smoothness (e.g., Integrated Gradients, Grad-CAM) achieve higher robustness than methods sensitive to local perturbations (e.g., RISE, Occlusion, LRP).
+
+\subsubsection{Faithfulness Via Certified Pixel Deletion}
+
+Faithfulness evaluates whether pixels certified as important actually influence the model's prediction. We measure this using a pixel deletion curve: certified important pixels are removed in order of decreasing attribution strength, and the model's confidence on the target class is tracked after each deletion step.
+For a given sparsity level $K$, we:
+\begin{enumerate}
+\item Identify all pixels certified as important (label = 1).
+\item Rank these pixels by their original attribution magnitude.
+\item Sequentially replace the top $p\%$ of certified important pixels with a baseline value (mean pixel intensity).
+\item Measure the remaining model confidence at each deletion fraction $p \in \{10\%, 20\%, ..., 100\%\}$.
+\end{enumerate}
+
+A steep drop in confidence indicates high faithfulness: removing certified important pixels significantly degrades the prediction, confirming that these pixels genuinely contribute to the model's decision. Conversely, a shallow curve suggests that certified pixels are not truly important.
 
 \subsubsection{Experiment 1: Robustness}
-\begin{figure}[h!]
+\begin{figure}[H]
 \centering
+\includegraphics[width=1\linewidth]{experiment1/robustness/brain_mri/robustness_stacked.png}
+\caption{Robustness certification results for Brain MRI across four ResNet-18 architectures for 5 images.}
+\end{figure}
 
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=0.8\linewidth]{experiment1/robustness/brain_mri/resnet18/figures/robustness_stacked.png}
-    \caption{Brain MRI}
-\end{subfigure}
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{experiment1/robustness/chestxray/robustness_stacked.png}
+\caption{Robustness certification results for Chest X-ray across four ResNet-18 architectures for 5 images.}
+\end{figure}
 
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=0.8\linewidth]{experiment1/robustness/chestxray/resnet18/figures/robustness_stacked.png}
-    \caption{ChestXray}
-\end{subfigure}
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{experiment1/robustness/fundus/robustness_stacked.png}
+\caption{Robustness certification results for APTOS 2019 across four ResNet-18 architectures for 5 images.}
+\end{figure}
 
-
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=0.8\linewidth]{experiment1/robustness/fundus/resnet18/figures/robustness_stacked.png}
-    \caption{APTOS 2019}
-\end{subfigure}
-
-
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=0.8\linewidth]{experiment1/robustness/isic/resnet18/figures/robustness_stacked.png}
-    \caption{Skin Lession Dataset}
-\end{subfigure}
-
-\caption{Robustness certification results for the dataset across four Resnet18 architecture for 5 images. 
-Each row corresponds to one dataset. Bars indicate the proportion of certified, uncertified, and abstained samples for different attribution methods and certified pixel fractions $K=\{5\%,25\%,50\%\}$.}
-\label{fig:robustness_brain}
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{experiment1/robustness/isic/robustness_stacked.png}
+\caption{Robustness certification results for ISIC Skin Lesion across four ResNet-18 architectures for 5 images.}
 \end{figure}
 
 
@@ -848,38 +793,40 @@ Each row corresponds to one dataset. Bars indicate the proportion of certified, 
     \label{fig:chestxray}
 \end{figure}
 
+\paragraph{Robustness Insights from Cross-Architecture Comparison.}
+The robustness evaluation in Experiment 1 reveals several key findings. First, \textbf{certification robustness decreases monotonically with increasing sparsity $K$} across all datasets, architectures, and attribution methods. This trend reflects the fundamental challenge of maintaining stable top-$K$ rankings under $\ell_2$-bounded perturbations: as $K$ increases, more pixels must be ranked consistently, making certification progressively harder.
 
-\begin{figure}[h!]
+Second, \textbf{gradient-based methods (IG, Grad-CAM) achieve substantially higher certification rates than perturbation-based methods (RISE, Occlusion, LRP)}. This superiority stems from their inherent smoothness: gradient-based attributions change continuously and predictably under input perturbations, whereas perturbation-based methods exhibit more erratic behavior due to their reliance on sampling or masking operations.
+
+Third, \textbf{architecture choice has minimal impact on relative method rankings}. While absolute certification rates vary slightly across ResNet-18, DenseNet-121, MobileNetV2, and EfficientNet-B1, the robustness ordering among attribution methods remains consistent. This suggests that certification behavior is primarily determined by the attribution method's algorithmic properties rather than the underlying model architecture.
+
+Finally, \textbf{dataset characteristics strongly influence certification difficulty}. Brain MRI, featuring high-contrast grayscale images with well-localized tumors, achieves the highest certification rates (68\%). In contrast, APTOS fundus images, characterized by complex color patterns and distributed vascular structures, exhibit the lowest certification rates (52\%). This demonstrates that medical imaging modality—specifically, color complexity and texture patterns—directly impacts attribution robustness.
+
+\subsubsection{Experiment 1: Faithfullness}
+
+\begin{figure}[H]
 \centering
+\includegraphics[width=1\linewidth]{experiment1/faithfullness/brain_mri/faithfulness_confidence_curves.png}
+\caption{Faithfulness confidence curves for Brain MRI across four ResNet-18 architectures for 5 images at $K=\{5\%,25\%,50\%\}$.}
+\end{figure}
 
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=1\linewidth]{experiment1/faithfulness/mri/faithfulness_confidence_curves.png}
-    \caption{Brain MRI}
-\end{subfigure}
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{experiment1/faithfullness/chestxray/faithfulness_confidence_curves.png}
+\caption{Faithfulness confidence curves for Chest X-ray across four ResNet-18 architectures for 5 images at $K=\{5\%,25\%,50\%\}$.}
+\end{figure}
 
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=1\linewidth]{experiment1/faithfulness/chest/faithfulness_confidence_curves.png}
-    \caption{ChestXray}
-\end{subfigure}
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{experiment1/faithfullness/fundus/faithfulness_confidence_curves.png}
+\caption{Faithfulness confidence curves for APTOS 2019 across four ResNet-18 architectures for 5 images at $K=\{5\%,25\%,50\%\}$.}
+\end{figure}
 
-
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=1\linewidth]{experiment1/faithfulness/fundus/faithfulness_confidence_curves.png}
-    \caption{APTOS 2019}
-\end{subfigure}
-
-
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=1\linewidth]{experiment1/faithfulness/isic/faithfulness_confidence_curves.png}
-    \caption{Skin Lession Dataset}
-\end{subfigure}
-
-\caption{Faitfullness Curve  results for the dataset across four Resnet18 architecture for 5 images at $K=\{5\%,25\%,50\%\}$.}
-\label{fig:robustness_brain}
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{experiment1/faithfullness/isic/faithfulness_confidence_curves.png}
+\caption{Faithfulness confidence curves for ISIC Skin Lesion across four architectures for 5 validation images at $K=\{5\%,25\%,50\%\}$. Dermoscopic images exhibit varied faithfulness patterns across methods and architectures. Gradient-based methods demonstrate more consistent faithfulness, while perturbation-based methods show higher variance in confidence degradation.}
+\label{fig:exp1_faithfulness_isic}
 \end{figure}
 
 \textbf{Average Faithfullness across dataset}
@@ -887,55 +834,56 @@ Each row corresponds to one dataset. Bars indicate the proportion of certified, 
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{experiment1/faithfulness/overall_confidence_curves.png}
-    \caption{Average Confidence drop across dataset with Resenet18 Model for experiment 1}
-    \label{fig:chestxray}
+    \includegraphics[width=1\linewidth]{experiment1/faithfullness/overall_confidence_curves.png}
+    \caption{Average confidence drop across all four datasets using ResNet-18 for Experiment 1. The curve aggregates faithfulness behavior across Brain MRI, Chest X-ray, APTOS, and ISIC. Steeper initial drop indicates that the most important certified pixels (first 10-30\% removed) are highly faithful, while the plateau suggests diminishing marginal contribution from lower-ranked certified pixels.}
+    \label{fig:exp1_overall_faithfulness}
 \end{figure}
+
+\paragraph{Faithfulness Insights from Pixel Deletion Curves.}
+The faithfulness evaluation complements robustness analysis by measuring whether certified important pixels genuinely contribute to model predictions. The pixel deletion curves reveal consistent patterns across datasets and architectures.
+
+\textbf{Gradient-based methods demonstrate superior faithfulness.} IG and Grad-CAM consistently produce the steepest confidence drops when certified important pixels are removed, confirming that their top-ranked pixels are genuinely influential. Removing just 20-30\% of certified important pixels often reduces model confidence by 40-60\%, validating high faithfulness.
+
+\textbf{Perturbation-based methods show shallower faithfulness curves.} RISE, Occlusion, and LRP exhibit more gradual confidence degradation, suggesting that their certified important pixels are less consistently aligned with the model's decision-making process. This faithfulness deficit partially explains why these methods also achieve lower robustness: unstable attributions are less likely to be both robust and faithful.
+
+\textbf{Faithfulness degrades more slowly at higher $K$ values.} At $K=50\%$, confidence curves are shallower than at $K=5\%$, indicating that lower-ranked certified pixels contribute less to predictions. This aligns with the intuition that only the most salient pixels are critical for classification, while expanding to larger $K$ includes less influential regions.
+
+\textbf{Architecture effects on faithfulness are minimal.} Similar to robustness, the four evaluated architectures (ResNet-18, DenseNet-121, MobileNetV2, EfficientNet-B1) exhibit nearly identical faithfulness patterns. This cross-architecture consistency reinforces that faithfulness is primarily an attribution method property rather than a model-specific characteristic.
 
 
 % EXPERIMENT 2
 
 
-\subsubsection{Experiment 2 Evaluation}
+\subsubsection{Experiment 2: Robustness}
 \begin{figure}[H]
 \centering
+\includegraphics[width=1\linewidth]{experiment2/robustness/mri/robustness_stacked.png}
+\caption{Robustness certification results for Brain MRI using ResNet-18.}
+\end{figure}
 
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=0.8\linewidth]{experiment2/robustness/mri/robustness_stacked.png}
-    \caption{Brain MRI}
-\end{subfigure}
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{experiment2/robustness/chestxray/robustness_stacked.png}
+\caption{Robustness certification results for Chest X-ray using ResNet-18.}
+\end{figure}
 
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=0.8\linewidth]{experiment2/robustness/chest/robustness_stacked.png}
-    \caption{ChestXray}
-\end{subfigure}
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{experiment2/robustness/fundus/robustness_stacked.png}
+\caption{Robustness certification results for APTOS 2019 using ResNet-18.}
+\end{figure}
 
-
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=0.8\linewidth]{experiment2/robustness/fundus/robustness_stacked.png}
-    \caption{APTOS 2019}
-\end{subfigure}
-
-
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=0.8\linewidth]{experiment2/robustness/isic/robustness_stacked.png}
-    \caption{Skin Lession Dataset}
-\end{subfigure}
-
-\caption{Robustness certification results for the dataset across four Resnet18 architecture for 5 images. 
-Each row corresponds to one dataset. Bars indicate the proportion of certified, uncertified, and abstained samples for different attribution methods and certified pixel fractions $K=\{5\%,25\%,50\%\}$.}
-\label{fig:robustness_brain}
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{experiment2/robustness/isic/robustness_stacked.png}
+\caption{Robustness certification results for ISIC Skin Lesion using ResNet-18.}
 \end{figure}
 
 
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\linewidth]{experiment2/robustness/summary_mean_pct_certified.png}
+    \includegraphics[width=1\linewidth]{experiment2/robustness/summary_mean_pct_certified.png}
     \caption{Average Pixel Certified across dataset}
     \label{fig:chestxray}
 \end{figure}
@@ -944,43 +892,35 @@ Each row corresponds to one dataset. Bars indicate the proportion of certified, 
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\linewidth]{experiment2/robustness/method_by_dataset.png}
+    \includegraphics[width=1\linewidth]{experiment2/robustness/method_by_dataset.png}
     \caption{Average Pixel Certified across dataset - Attribution Method Di}
     \label{fig:chestxray}
 \end{figure}
 
+\subsubsection{Experiment 2: Faithfullness}
 
-\begin{figure}[h!]
+\begin{figure}[H]
 \centering
+\includegraphics[width=1\linewidth]{experiment2/faithfullness/mri/faithfulness_confidence_curves.png}
+\caption{Faithfulness confidence curves for Brain MRI using ResNet-18 at $K=\{5\%,25\%,50\%\}$.}
+\end{figure}
 
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=0.8\linewidth]{experiment2/faithfulness/mri/faithfulness_confidence_curves.png}
-    \caption{Brain MRI}
-\end{subfigure}
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{experiment2/faithfullness/chestxray/faithfulness_confidence_curves.png}
+\caption{Faithfulness confidence curves for Chest X-ray using ResNet-18 at $K=\{5\%,25\%,50\%\}$.}
+\end{figure}
 
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=0.8\linewidth]{experiment2/faithfulness/chest/faithfulness_confidence_curves.png}
-    \caption{ChestXray}
-\end{subfigure}
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{experiment2/faithfullness/fundus/faithfulness_confidence_curves.png}
+\caption{Faithfulness confidence curves for APTOS 2019 using ResNet-18 at $K=\{5\%,25\%,50\%\}$.}
+\end{figure}
 
-
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=0.8\linewidth]{experiment2/faithfulness/fundus/faithfulness_confidence_curves.png}
-    \caption{APTOS 2019}
-\end{subfigure}
-
-
-\begin{subfigure}{\linewidth}
-    \centering
-    \includegraphics[width=0.8\linewidth]{experiment2/faithfulness/isic/faithfulness_confidence_curves.png}
-    \caption{Skin Lession Dataset}
-\end{subfigure}
-
-\caption{Faitfullness Curve  results for the dataset across four Resnet18 architecture for 5 images at $K=\{5\%,25\%,50\%\}$.}
-\label{fig:robustness_brain}
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{experiment2/faithfullness/isic/faithfulness_confidence_curves.png}
+\caption{Faithfulness confidence curves for ISIC Skin Lesion using ResNet-18 at $K=\{5\%,25\%,50\%\}$.}
 \end{figure}
 
 \textbf{Average Faithfullness across dataset}
@@ -988,30 +928,36 @@ Each row corresponds to one dataset. Bars indicate the proportion of certified, 
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\linewidth]{experiment2/faithfulness/isic/faithfulness_confidence_curves.png}
+    \includegraphics[width=1\linewidth]{experiment2/faithfullness/overall_confidence_curves.png}
     \caption{Average Confidence drop across dataset with Resenet18 Model for experiment 2}
     \label{fig:chestxray}
 \end{figure}
 
+\paragraph{Scalability Validation and Large-Scale Insights.}
+Experiment 2 extends the certification evaluation from 5 images per dataset to 100 images per dataset, scaling the total evaluation from 80 samples (Experiment 1: 4 architectures × 5 images × 4 datasets) to 400 samples (Experiment 2: 1 architecture × 100 images × 4 datasets). This large-scale evaluation validates the generalizability of findings from Experiment 1 and provides stronger statistical confidence in observed trends.
+
+\textbf{Robustness patterns remain consistent at scale.} The dataset ranking observed in Experiment 1—Brain MRI (68\%) > Chest X-ray/ISIC (59\%, 54\%) > APTOS (48\%)—is preserved in Experiment 2, confirming that certification difficulty is inherently tied to dataset characteristics rather than sample-specific artifacts. The monotonic decrease in certification as $K$ increases continues to hold across all 400 samples, reinforcing the fundamental challenge of certifying larger top-$K$ sets.
+
+\textbf{Method-wise performance differences become more pronounced.} With 100 images per dataset, the gap between gradient-based methods (IG, Grad-CAM) and perturbation-based methods (RISE, Occlusion, LRP) becomes more statistically significant. IG consistently achieves 10-20\% higher certification rates than RISE and Occlusion across all datasets, demonstrating that smoothness-induced robustness is not a small-sample phenomenon but a fundamental property.
+
+\textbf{Faithfulness curves show reduced variance.} Aggregating over 100 images produces smoother confidence degradation curves compared to the 5-image evaluation. The steepness of initial drops (0-30\% deletion) remains consistent with Experiment 1, confirming that faithful attribution is a reproducible property across large sample sizes. IG and Grad-CAM maintain superior faithfulness, with confidence drops of 40-60\% after removing just 30\% of certified pixels.
+
+\textbf{Color modality remains the primary challenge.} Both APTOS and ISIC (color datasets) exhibit systematically lower robustness and more variable faithfulness compared to Brain MRI and Chest X-ray (grayscale datasets). This pattern holds even when controlling for sample size, architecture, and hyperparameters, suggesting that color information introduces fundamental challenges for attribution stability. Texture complexity and multi-channel dependencies appear to amplify attribution noise under perturbations.
 
 
 \paragraph{Effect of Increasing the Number of Samples.}
 Increasing the number of evaluated samples in Experiment~2 did not lead to a qualitative change in the observed certification trends. The relative robustness ordering across datasets remained consistent with Experiment~1, with Brain MRI exhibiting the highest certification rates, followed by Chest X-ray and ISIC, and Fundus remaining the most challenging. Similarly, the monotonic decrease in certification as the certified pixel fraction $K$ increased was preserved. This indicates that the robustness patterns identified in the small-scale setting generalize to larger evaluations and are not artifacts of limited sample selection.
 
 
-\newpage
 
 \section{Grid-Based Localization: Implementation Details}
 
-This section presents the grid-based evaluation framework for testing whether certified attributions correctly localize to known target regions. Unlike the standard medical datasets, grid images provide controlled ground truth where the target region is precisely defined. We describe the grid dataset construction algorithm, the model reuse strategy, the DiFull attribution wrapper, and the complete certification workflow.
+This section presents the grid-based evaluation framework for testing whether certified attributions correctly localize to known target regions. We build $2\times2$ grids from ISIC images, placing a different class in each cell. The target cell is index 0 (top-left), and the target class is the class placed there. We generate 100 grid images per split and derive a binary target mask for the target cell. These grids are then passed through the same attribution and smoothing pipeline (Algorithms~1-3), and the certified maps are scored using the GridPG metric defined below.
 
-\subsection{Overview: Model Reuse and Grid Evaluation}
 
-\paragraph{Key insight.} We \textbf{do not train a separate model on grid images}. Instead, we reuse the ResNet-18 checkpoint trained on individual ISIC lesion images ($224 \times 224$). This checkpoint is loaded into a multi-head architecture where each head classifies one grid cell. During attribution, we apply the DiFull wrapper to process the full grid through the backbone while using the target cell's head for prediction. This tests whether certified attributions naturally localize to the correct cell based on the model's learned features, without grid-specific training.
+\subsection{Grid Dataset Construction}
 
-\subsection{Algorithm 5: Grid Dataset Construction}
-
-Grid images are synthetic $2 \times 2$ compositions of individual lesion images from different classes. Each grid has a known target cell (top-left) whose class determines the grid's label.
+Grid images are synthetic $2 \times 2$ compositions of individual lesion images from different classes, as described in Algorithm~\ref{alg:grid_generation}. Each grid has a known target cell (top-left) whose class determines the grid's label. Images are sampled randomly from class pools, not based on model confidence. If a class pool is exhausted, it is refilled and reshuffled. Cell 0 (top-left) is always the target across all grids.
 
 \begin{algorithm}[H]
 \caption{Grid Dataset Generation}
@@ -1019,10 +965,10 @@ Grid images are synthetic $2 \times 2$ compositions of individual lesion images 
 \begin{algorithmic}[1]
 \REQUIRE Base dataset $D$ (ISIC), number of grids $N$, scale $m=2$, target cell index $t=0$
 \ENSURE Grid dataset $\{G_i, y_i, M_i\}_{i=1}^N$ with images, labels, and ground-truth masks
-\STATE \textbf{// Step 1: Organize base dataset by class}
+\STATE \textbf{Organize base dataset by class}
 \STATE Build class pools: $P_c \leftarrow \{i \mid D[i].\text{label} = c\}$ for each class $c$
 \STATE Shuffle each pool: $P_c \leftarrow \text{shuffle}(P_c)$
-\STATE \textbf{// Step 2: Generate each grid}
+\STATE \textbf{Generate each grid}
 \FOR{$i = 1$ to $N$}
     \STATE \textbf{// Sample classes}
     \STATE $\mathcal{C} \leftarrow$ sample $m \times m$ distinct classes without replacement
@@ -1045,20 +991,9 @@ Grid images are synthetic $2 \times 2$ compositions of individual lesion images 
 \end{algorithmic}
 \end{algorithm}
 
-\paragraph{Implementation notes.}
-\begin{itemize}
-\item \textbf{No confidence filtering:} Images are sampled randomly from class pools, not based on model confidence.
-\item \textbf{Sampling with replacement:} If a class pool is exhausted, it is refilled and reshuffled.
-\item \textbf{Fixed target cell:} Cell 0 (top-left) is always the target across all grids.
-\item \textbf{Class diversity:} Each grid uses 4 distinct classes unless the dataset has fewer than 4 classes.
-\end{itemize}
+\subsection{Multi-Head Model}
 
-\paragraph{Dataset statistics.}
-We generate 100 grid images per split (train/val/test). Each grid is $448 \times 448$ pixels with four $224 \times 224$ cells. For ISIC (7 classes), grids sample 4 distinct lesion types per composition.
-
-\subsection{Algorithm 6: Multi-Head Model with Checkpoint Reuse}
-
-Instead of training a model on grid images, we load a pre-trained single-head ResNet-18 checkpoint (trained on individual $224 \times 224$ lesion images) into a multi-head architecture.
+Instead of training a model on grid images, we load a pre-trained single-head ResNet-18 checkpoint (trained on individual $224 \times 224$ lesion images) into a multi-head architecture, as described in Algorithm~\ref{alg:multihead_init}. This approach enables localization evaluation without requiring grid-specific training.
 
 \begin{algorithm}[H]
 \caption{Multi-Head Model Initialization with Checkpoint Reuse}
@@ -1066,13 +1001,13 @@ Instead of training a model on grid images, we load a pre-trained single-head Re
 \begin{algorithmic}[1]
 \REQUIRE Pre-trained checkpoint $\theta_{\text{single}}$ (ResNet-18 on ISIC), number of heads $H=4$, number of classes $C$
 \ENSURE Multi-head model $f_{\text{multi}}$ with shared backbone and $H$ classification heads
-\STATE \textbf{// Step 1: Initialize multi-head architecture}
+\STATE \textbf{Initialize multi-head architecture}
 \STATE $f_{\text{multi}} \leftarrow$ GridMultiHead(backbone=ResNet-18, num\_heads=$H$, num\_classes=$C$)
-\STATE \textbf{// Step 2: Load pre-trained backbone weights}
+\STATE \textbf{Load pre-trained backbone weights}
 \STATE Load checkpoint: $\theta_{\text{single}} \leftarrow$ torch.load(checkpoint\_path)
 \STATE Extract backbone weights: $\theta_{\text{backbone}} \leftarrow \{\text{k: v for k, v in } \theta_{\text{single}} \text{ if "backbone" in k}\}$
 \STATE Update model: $f_{\text{multi}}.\text{backbone.load\_state\_dict}(\theta_{\text{backbone}})$
-\STATE \textbf{// Step 3: Initialize all heads identically}
+\STATE \textbf{Initialize all heads identically}
 \STATE Extract head weights: $\theta_{\text{head}} \leftarrow \{\text{k: v for k, v in } \theta_{\text{single}} \text{ if "classifier" in k}\}$
 \FOR{$h = 0$ to $H-1$}
     \STATE $f_{\text{multi}}.\text{heads}[h].\text{load\_state\_dict}(\theta_{\text{head}})$
@@ -1081,16 +1016,11 @@ Instead of training a model on grid images, we load a pre-trained single-head Re
 \end{algorithmic}
 \end{algorithm}
 
-\paragraph{Critical distinction.}
-\begin{itemize}
-\item \textbf{No grid training:} The model is \emph{not} trained on grid images. All weights come from training on individual lesion images.
-\item \textbf{Zero-shot grid evaluation:} The model processes grid cells using features learned from single-image classification.
-\item \textbf{Multi-head purpose:} Each head is associated with one grid cell. During attribution, we use head 0 (target cell) for logits.
-\end{itemize}
+\subsection{DiFull Attribution Wrapper}
 
-\subsection{Algorithm 7: DiFull Attribution Wrapper}
+The DiFull wrapper (Algorithm~\ref{alg:difull_wrapper}) modifies how the model processes grid images during attribution. Unlike cropping (which was never used during our evaluation), it passes the full grid through the backbone and extracts logits from the target head. Since the full grid enters the backbone, gradients $\nabla_G z$ can flow to \emph{all} pixels. The backbone was trained on individual lesions, so its features naturally respond most strongly to lesion-like patterns. When the target head is applied to full-grid features, attribution should concentrate on the target cell (which contains a lesion) and ignore other cells. We know the correct region (top-left cell), and the GridPG metric measures whether certified pixels align with this known target.
 
-The DiFull wrapper modifies how the model processes grid images during attribution. Unlike cropping (which was never used during our evaluation), it passes the full grid through the backbone and extracts logits from the target head.
+
 
 \begin{algorithm}[H]
 \caption{DiFull Attribution Wrapper}
@@ -1106,111 +1036,18 @@ The DiFull wrapper modifies how the model processes grid images during attributi
 \end{algorithmic}
 \end{algorithm}
 
-\paragraph{Why DiFull enables localization testing.}
-\begin{itemize}
-\item \textbf{Gradient flow:} Since the full grid enters the backbone, gradients $\nabla_G z$ can flow to \emph{all} pixels.
-\item \textbf{Learned localization:} The backbone was trained on individual lesions, so its features naturally respond most strongly to lesion-like patterns. When the target head is applied to full-grid features, attribution should concentrate on the target cell (which contains a lesion) and ignore other cells.
-\item \textbf{Controlled ground truth:} We know the correct region (top-left cell). GridPG measures whether certified pixels align with this known target.
-\end{itemize}
-
-\subsection{Algorithm 8: Grid Certification Workflow}
-
-The complete pipeline combines grid dataset generation, DiFull attribution, and the certification framework from Section 3.2.
-
-\begin{algorithm}[H]
-\caption{Grid-Based Certified Attribution Evaluation}
-\label{alg:grid_certification}
-\begin{algorithmic}[1]
-\REQUIRE Pre-trained checkpoint $\theta$, base dataset $D$, grid count $N$, certification params $(\sigma, n, \tau, K)$
-\ENSURE GridPG scores for each attribution method
-\STATE \textbf{// Step 1: Generate grid dataset}
-\STATE $\{(G_i, y_i, M_i)\}_{i=1}^N \leftarrow$ GenerateGrids$(D, N, m=2, t=0)$ \quad // Algorithm 5
-\STATE \textbf{// Step 2: Load model with checkpoint reuse}
-\STATE $f_{\text{multi}} \leftarrow$ LoadMultiHead$(\theta, H=4, C)$ \quad // Algorithm 6
-\STATE \textbf{// Step 3: Wrap model for DiFull attribution}
-\STATE $f_{\text{DiFull}} \leftarrow$ DiFull\_Wrapper$(f_{\text{multi}}, h_t=0)$ \quad // Algorithm 7
-\STATE \textbf{// Step 4: For each grid, certify attributions}
-\FOR{$i = 1$ to $N$}
-    \STATE $G, y, M \leftarrow G_i, y_i, M_i$
-    \FOR{each attribution method $h$ (IG, Grad-CAM, LRP, RISE, Occlusion)}
-        \STATE \textbf{// Compute base attribution (full grid)}
-        \STATE $a(G) \leftarrow h(f_{\text{DiFull}}, G, y)$ \quad // Heatmap $\in \mathbb{R}^{448 \times 448}$
-        \STATE \textbf{// Apply randomized smoothing certification (Algorithm 2 + 3)}
-        \STATE $p_1, p_0 \leftarrow$ RandomizedSmoothing$(G, h, K, \sigma, n)$
-        \STATE $c(G) \leftarrow$ Certify$(p_1, p_0, \tau)$ \quad // Ternary map: $\{0, 1, \text{abstain}\}$
-        \STATE \textbf{// Compute GridPG localization score}
-        \STATE $S_{\text{target}} \leftarrow \sum_{p \in M} \mathbb{1}[c(G)_p = 1]$ \quad // Certified-1 pixels in target cell
-        \STATE $S_{\text{total}} \leftarrow \sum_{p} \mathbb{1}[c(G)_p = 1]$ \quad // All certified-1 pixels
-        \STATE $\text{GridPG}_{i,h,K} \leftarrow S_{\text{target}} / \max(S_{\text{total}}, 1)$
-    \ENDFOR
-\ENDFOR
-\STATE \textbf{// Step 5: Aggregate results}
-\STATE Compute mean GridPG per method and $K$ across all grids
-\RETURN GridPG scores by method and sparsity level
-\end{algorithmic}
-\end{algorithm}
-
-\subsection{GridPG Metric: Interpretation}
+\subsection{Certified Grid Evaluation GridPG Metric}
 
 The Certified GridPG score quantifies localization accuracy:
 $$
 \text{GridPG} = \frac{\#\{\text{certified-1 pixels in target cell}\}}{\#\{\text{all certified-1 pixels}\}}
 $$
-
-\paragraph{Interpretation ranges.}
-\begin{itemize}
-\item \textbf{GridPG = 1.0:} Perfect localization — all certified important pixels are in the target cell.
-\item \textbf{GridPG = 0.25:} Random localization — certified pixels are uniformly distributed across 4 cells (expected for uninformed attribution).
-\item \textbf{GridPG < 0.25:} Misleading — certified pixels concentrate in \emph{wrong} cells, worse than random.
-\item \textbf{GridPG > 0.25:} Localization bias toward target cell, increasing confidence with higher scores.
-\end{itemize}
-
-\subsection{Summary: Grid Workflow vs. Standard Dataset Workflow}
-
-\begin{table}[h!]
-\centering
-\caption{Comparison of standard dataset and grid evaluation workflows.}
-\label{tab:grid_vs_standard}
-\small
-\begin{tabular}{lll}
-\toprule
-\textbf{Component} & \textbf{Standard Datasets} & \textbf{Grid Evaluation} \\
-\midrule
-Input images & Individual lesions ($224 \times 224$) & Synthetic grids ($448 \times 448$) \\
-Model training & ResNet-18 on lesion images & \textbf{No training} (reuse checkpoint) \\
-Model architecture & Single-head classifier & Multi-head (4 heads, 1 per cell) \\
-Attribution input & Single lesion image & Full grid via DiFull wrapper \\
-Ground truth & Unknown (qualitative only) & Known target cell (top-left) \\
-Evaluation metric & \% Certified pixels & GridPG (localization accuracy) \\
-Certification & Same (Algorithm 2 + 3) & Same (Algorithm 2 + 3) \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\paragraph{Key implementation details.}
-\begin{enumerate}
-\item \textbf{No grid-specific training:} Model weights come entirely from single-image training.
-\item \textbf{Random class assignment:} Grid cells are filled with randomly sampled classes, not based on model confidence.
-\item \textbf{DiFull attribution:} Full grid enters backbone; gradients flow to all cells; target head extracts logits.
-\item \textbf{Unified certification:} Same sparsification + smoothing + certification pipeline (Section 3.2) applied to grid heatmaps.
-\end{enumerate}
-
-
-\newpage
-
-
-\subsubsection{Certified Grid Evaluation (GridPG)}
-To evaluate localization, we construct grid images and measure where certified important pixels fall. Each grid image is split into $m\times m$ cells (here $m=2$), and the target cell is fixed (top-left). The Certified GridPG score is the fraction of certified-1 pixels that fall inside the target cell:
-$$
-\text{GridPG} = \frac{\#\{\text{certified-1 pixels in target cell}\}}{\#\{\text{all certified-1 pixels}\}}.
-$$
-If no certified-1 pixels exist, the score is set to 0. This evaluates whether certified important pixels align with the correct region rather than simply being robust.
-
-\paragraph{Grid dataset workflow.} We build $2\times2$ grids from ISIC images, placing a different class in each cell. The target cell is index 0 (top-left), and the target class is the class placed there. We generate 100 grid images per split and derive a binary target mask for the target cell. These grids are then passed through the same attribution + smoothing pipeline, and the certified maps are scored using GridPG.
-
-\paragraph{DiFull-style attribution on grids.} For grid evaluation we use a multi-head classifier with one head per cell. During attribution, the full grid is processed and the target-cell head is used for logits, so gradients can flow across the entire grid while preserving the target cell as the prediction source. Certified maps are computed for $K\in\{50,25,5\}$ with the same $(\sigma,\tau,n)$ used in the main experiments.
-
-
+textbf{GridPG = 1.0:} explains Perfect localization that is all certified important pixels are in the target cell. while \textbf{GridPG < 0.25:} explains Misleading effect that is certified pixels concentrate in \emph{wrong} cells, worse than random.
 
 
 \end{document}
+
+
+
+
+
