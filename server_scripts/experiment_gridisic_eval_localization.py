@@ -100,12 +100,12 @@ def main():
     print(f"Model: {args.model_name}")
     print()
     
-    # Initialize evaluator
-    checkpoint_dir = os.path.join("outputs", "checkpoints", "isic", args.model_name)
+    # Initialize evaluator (checkpoint_dir not used for localization, just needed for __init__)
+    # Use output_dir as dummy since model is not loaded during evaluate_batch()
     evaluator = LocalizationEvaluator(
         model_name=args.model_name,
         dataset_name="grid_isic",
-        checkpoint_dir=checkpoint_dir
+        checkpoint_dir=str(output_dir)
     )
     
     # Run evaluation
