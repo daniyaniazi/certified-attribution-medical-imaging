@@ -1,45 +1,22 @@
-#!/bin/bash
-#
-# Execute Grid ISIC Localization Evaluation
-#
-# This script evaluates the localization performance (GridPG metric)
-# of certified attributions on the Grid ISIC dataset.
-#
-# Prerequisites:
-#   1. Grid dataset generated (with metadata.json)
-#   2. Bulk certification completed (cert_results.pkl exists)
-#
-# Outputs:
-#   - outputs/eval/grid/isic/localization_results.json
-#   - outputs/eval/grid/isic/localization_gridpg.png
-#
-
+#!/usr/bin/env bash
 set -euo pipefail
 
-echo "=========================================="
-echo "Grid ISIC Localization Evaluation"
-echo "=========================================="
-echo "Started at: $(date)"
-echo ""
+# Grid ISIC Localization Evaluation execution script for HTCondor
+# Usage: Executed by HTCondor via experiment_gridisic_eval_localization.sub
 
-# ============================================================================
-# Configuration
-# ============================================================================
+PROJECT_ROOT="${PROJECT_ROOT:-/home/exml_team007/certified-attribution-medical-imaging}"
+CONDA_PYTHON_BINARY_PATH="${CONDA_PYTHON_BINARY_PATH:-/home/exml_team007/miniconda3/envs/certified-attribution-medical-imaging/bin/python}"
+PYTHON_SCRIPT="server_scripts/experiment_gridisic_eval_localization.py"
 
-# Project paths
-PYTHON_BIN="${CONDA_PYTHON_BINARY_PATH:-python}"
-PROJECT_ROOT="${PROJECT_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
-SCRIPT="${PROJECT_ROOT}/server_scripts/experiment_gridisic_eval_localization.py"
+cd "$PROJECT_ROOT"
+echo "Running Grid ISIC Localization Evaluation: $PYTHON_SCRIPT with Python: $CONDA_PYTHON_BINARY_PATH" >&2
+"$CONDA_PYTHON_BINARY_PATH" "$PYTHON_SCRIPT" \
+    --cert_results outputs/bulk_certifcation/grid/isic_2/resnet18/cert_results.pkl \
+    --grid_metadata data/raw/grid/isic/metadata.json \
+    --output_dir outputs/eval/grid/isic \
+    --model_name resnet18 \
+    --save_per_k_plots "$@"
 
-# Input paths
-CERT_RESULTS="${PROJECT_ROOT}/outputs/bulk_certifcation/grid/isic_2/resnet18/cert_results.pkl"
-GRID_METADATA="${PROJECT_ROOT}/data/raw/grid/isic/metadata.json"
-
-# Output paths
-OUTPUT_DIR="${PROJECT_ROOT}/outputs/eval/grid/isic"
-
-# Model configuration
-MODEL_NAME="resnet18"
 
 echo "Configuration:"
 echo "  Project root: ${PROJECT_ROOT}"
