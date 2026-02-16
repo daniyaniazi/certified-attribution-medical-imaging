@@ -850,6 +850,16 @@ The faithfulness evaluation complements robustness analysis by measuring whether
 
 \textbf{Architecture effects on faithfulness are minimal.} Similar to robustness, the four evaluated architectures (ResNet-18, DenseNet-121, MobileNetV2, EfficientNet-B1) exhibit nearly identical faithfulness patterns. This cross-architecture consistency reinforces that faithfulness is primarily an attribution method property rather than a model-specific characteristic.
 
+\paragraph{Concerning Observations: Erratic Faithfulness Curves.}
+Despite the overall trends described above, many individual faithfulness curves exhibit concerning patterns that warrant critical examination. Ideally, pixel deletion curves should decrease \emph{smoothly and monotonically}: as more certified important pixels are removed, model confidence should steadily decline. However, several observed curves show:
+
+\begin{itemize}
+\item \textbf{Flat or near-flat curves:} Removing up to 50-70\% of "certified important" pixels produces minimal confidence drop ($<10\%$). This suggests these pixels are not genuinely important to the model's decision, contradicting the attribution.
+\item \textbf{Non-monotonic behavior:} Confidence \emph{increases} after deleting certain pixel fractions, then drops again. This counter-intuitive pattern indicates that some certified pixels may actually be \emph{suppressing} the prediction or that the deletion baseline introduces spurious signals.
+\item \textbf{High inter-method variance:} On the same image, different attribution methods produce radically different curve shapes, suggesting attribution instability rather than robust signal.
+\end{itemize}
+
+These irregularities raise the possibility that randomized smoothing, rather than filtering unstable attributions, may be \emph{certifying noise}—pixel patterns that happen to be consistent across noisy samples by chance rather than reflecting genuine model reasoning. This concern is amplified by the grid localization failures (Section~\ref{tab:grid_isic_localization}), where certified pixels completely fail to align with known ground truth.
 
 % EXPERIMENT 2
 
@@ -943,6 +953,17 @@ Experiment 2 extends the certification evaluation from 5 images per dataset to 1
 \textbf{Faithfulness curves show reduced variance.} Aggregating over 100 images produces smoother confidence degradation curves compared to the 5-image evaluation. The steepness of initial drops (0-30\% deletion) remains consistent with Experiment 1, confirming that faithful attribution is a reproducible property across large sample sizes. IG and Grad-CAM maintain superior faithfulness, with confidence drops of 40-60\% after removing just 30\% of certified pixels.
 
 \textbf{Color modality remains the primary challenge.} Both APTOS and ISIC (color datasets) exhibit systematically lower robustness and more variable faithfulness compared to Brain MRI and Chest X-ray (grayscale datasets). This pattern holds even when controlling for sample size, architecture, and hyperparameters, suggesting that color information introduces fundamental challenges for attribution stability. Texture complexity and multi-channel dependencies appear to amplify attribution noise under perturbations.
+
+\paragraph{Persistent Faithfulness Concerns at Scale.}
+Scaling to 100 images per dataset does not resolve the erratic faithfulness patterns observed in Experiment 1. While averaging across more samples produces visually smoother aggregate curves, inspection of individual image-level deletion curves reveals that the underlying issues persist:
+
+\begin{itemize}
+\item \textbf{Averaging masks individual failures:} Many images still exhibit flat or non-monotonic curves. The smooth aggregate curves in the figures result from averaging over diverse failure modes, not from consistent faithful behavior across images.
+\item \textbf{RISE and Occlusion show minimal faithfulness impact:} Even after 80-90\% pixel deletion, confidence often remains above 50\%, indicating that these methods' certified pixels are largely irrelevant to predictions.
+\item \textbf{LRP's sharp curves may reflect annotation artifacts:} LRP sometimes shows steep drops, but visual inspection suggests it may be identifying texture edges or color boundaries rather than diagnostically relevant regions.
+\end{itemize}
+
+Combined with the grid localization failures (where most methods achieve GridPG near or below the theoretical random expectation of 0.25), these observations suggest that the certification framework may be fundamentally limited when applied to medical images without stronger model training or attribution method redesign.
 
 
 \paragraph{Effect of Increasing the Number of Samples.}
@@ -1042,7 +1063,66 @@ The Certified GridPG score quantifies localization accuracy:
 $$
 \text{GridPG} = \frac{\#\{\text{certified-1 pixels in target cell}\}}{\#\{\text{all certified-1 pixels}\}}
 $$
-textbf{GridPG = 1.0:} explains Perfect localization that is all certified important pixels are in the target cell. while \textbf{GridPG < 0.25:} explains Misleading effect that is certified pixels concentrate in \emph{wrong} cells, worse than random.
+\textbf{GridPG = 1.0:} Perfect localization—all certified important pixels are in the target cell. \textbf{GridPG = 0.25:} Random baseline for $2\times2$ grid (1/4 cells). \textbf{GridPG < 0.25:} Misleading—certified pixels concentrate in \emph{wrong} cells, worse than random.
+
+\subsection{Grid ISIC Localization Results}
+
+Grid-based evaluation was conducted on 100 synthetic $2 \times 2$ grid images constructed from ISIC skin lesion samples. Each grid contains four different lesion classes, with the target class always placed in the top-left cell (cell 0). Certification was performed using the same randomized smoothing protocol ($\sigma=0.15$, $n=100$, $\tau=0.75$) across all attribution methods at three sparsity levels ($K=\{5\%, 25\%, 50\%\}$).
+
+Table~\ref{tab:grid_isic_localization} presents the Certified GridPG scores for all attribution methods. Higher scores indicate better alignment between certified important pixels and the known target region.
+
+\begin{table}[H]
+\centering
+\caption{Grid ISIC Localization Results: Certified GridPG Scores. Values indicate the fraction of certified important pixels that correctly localize to the target cell. Theoretical random expectation for $2\times2$ grid would be 0.25 (1/4 cells).}
+\label{tab:grid_isic_localization}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Method} & \textbf{K=50\%} & \textbf{K=25\%} & \textbf{K=5\%} \\
+\midrule
+Occlusion            & \textbf{0.3357} & \textbf{0.3542} & 0.2937 \\
+GradCAM              & 0.3067          & 0.3292          & \textbf{0.4204} \\
+LRP                  & 0.2691          & 0.2654          & 0.1950 \\
+IntegratedGradients  & 0.1845          & 0.0000          & 0.0000 \\
+RISE                 & 0.0000          & 0.0000          & 0.0000 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Critical Analysis of Grid Localization Performance.}
+The grid-based localization results reveal significant limitations in the certified attribution framework when applied to synthetic multi-region images. Most methods achieve GridPG scores near or below the theoretical random expectation of 0.25 (for a $2\times2$ grid where each cell has equal probability), with three methods (IntegratedGradients at $K=25\%$ and $K=5\%$, RISE at all $K$ values) scoring exactly 0.0, indicating complete localization failure.
+
+\textbf{RISE consistently fails to produce any certified important pixels in the target region.} Across all sparsity levels, RISE achieves GridPG = 0.0, meaning that none of its certified pixels align with the known ground truth location. This catastrophic failure suggests that RISE's stochastic masking procedure produces highly unstable attribution maps under randomized smoothing. The method's reliance on random occlusion patterns appears fundamentally incompatible with certification, as small input perturbations drastically alter which masks contribute to the final attribution.
+
+\textbf{IntegratedGradients also fails at higher sparsity levels ($K=25\%$ and $K=5\%$).} While IG performed well on standard medical images in Experiments 1 and 2, it achieves 0.0 GridPG on grid images for sparse settings. This breakdown may stem from the grid structure confusing gradient-based attribution: the model's gradients distribute across multiple lesion-containing cells rather than concentrating on the target cell, and sparsification then selects pixels from incorrect regions.
+
+\textbf{Even the best-performing methods barely exceed the theoretical random expectation.} GradCAM achieves the highest score (0.4204 at $K=5\%$), which is only moderately above the 0.25 theoretical random level (1/4 cells). Occlusion reaches 0.3542 at $K=25\%$, similarly modest. These low scores indicate that certified attributions do not reliably localize to known target regions, even when the ground truth mask is unambiguous.
+
+\textbf{Certification visualizations exhibit extreme sparsity and abstention.} Qualitative inspection of certified attribution maps on grid images reveals that the vast majority of pixels are marked as "abstain" rather than receiving confident important/unimportant labels. The few certified pixels that do appear are scattered randomly across the grid rather than concentrating in the target cell. This suggests that the randomized smoothing procedure, when applied to grid images, produces highly inconsistent top-$K$ rankings that fail to reach the certification threshold $\tau=0.75$.
+
+\paragraph{Potential Causes and Methodological Limitations.}
+Several factors may contribute to these poor localization results:
+
+\begin{enumerate}
+\item \textbf{Model-data mismatch:} The ResNet-18 backbone was trained on individual $224 \times 224$ lesion images, not on $448 \times 448$ grids. When confronted with a grid containing four distinct lesions, the model's internal representations may not align with the assumption that only one cell is relevant. The multi-head wrapper attempts to address this by selecting the target head, but the backbone's features are still derived from the full grid, potentially diffusing attention across all four cells.
+
+\item \textbf{DiFull wrapper limitations:} Unlike cropping-based approaches, DiFull processes the entire grid through the backbone. While this allows gradients to flow to all pixels (necessary for full-image attribution), it also means that the backbone "sees" all four lesions simultaneously. Attribution methods may then distribute importance across multiple cells, and randomized smoothing further destabilizes this already-ambiguous signal.
+
+\item \textbf{Insufficient training on grid structure:} The checkpoint was never fine-tuned or trained on grid images. The model's weights encode priors from single-lesion classification, which may be incompatible with the grid task. This mismatch likely reduces both prediction confidence and attribution coherence on grid images.
+
+\item \textbf{Attribution method assumptions violated:} Gradient-based methods assume a single dominant signal path from input to output. In grid images with four competing lesions, this assumption breaks down. Perturbation-based methods (RISE, Occlusion) rely on masking regions to observe prediction changes, but in grids, masking one cell may expose another lesion, confounding the importance signal.
+\end{enumerate}
+
+\textbf{Implications for faithfulness and robustness on standard medical images.} The grid evaluation casts doubt on the validity of certification results from Experiments 1 and 2. If certified attributions fail so dramatically on grid images with known ground truth, it raises the question: are the certified pixels on real medical images (ChestX-ray, Brain MRI, ISIC, APTOS) truly meaningful, or are they similarly arbitrary?
+
+Revisiting the faithfulness curves from Experiments 1 and 2 with this skepticism reveals additional concerns. Many faithfulness curves exhibit erratic behavior—either remaining nearly flat (indicating that removing "certified important" pixels barely affects the model's confidence) or showing extreme non-monotonic oscillations (confidence increases after deleting pixels, then drops again). A proper faithfulness curve should decrease \emph{smoothly and monotonically} as more important pixels are removed. The observed irregularities suggest that:
+
+\begin{itemize}
+\item \textbf{Certified pixels may not be genuinely important.} Flat curves indicate that the model's decision does not actually depend on the certified regions, contradicting the attribution method's claims.
+\item \textbf{Randomized smoothing may amplify noise rather than reveal robust structure.} The certification process, instead of filtering out unstable attributions, may be certifying random pixel patterns that happen to be consistent across noisy samples by chance.
+\item \textbf{Model training quality may be insufficient.} If the underlying classifiers are not strongly confident or rely on spurious correlations, their attribution maps will be inherently unstable regardless of the certification method.
+\end{itemize}
+
+These findings suggest that pixel-level certification via randomized smoothing, while theoretically sound, may require substantially stronger model training, more careful hyperparameter tuning, or fundamentally different attribution methods to achieve practical utility in medical imaging applications.
 
 
 \end{document}
