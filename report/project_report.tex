@@ -6,7 +6,7 @@
 \usepackage{tabularx} % Add this in the preamble
 \usepackage{amssymb}
 % Remove the "review" option to generate the final version.
-\usepackage{ACL2023}
+
 
 % Standard package includes
 \usepackage{times}
@@ -17,12 +17,15 @@
 \usepackage{subcaption}
 \usepackage{placeins}
 \usepackage{float}
-
+\usepackage[a4paper, margin=0.9in]{geometry}
+\usepackage{subcaption}
+\usepackage{natbib}
+\bibliographystyle{acl_natbib}
 % For proper rendering and hyphenation of words containing Latin characters (including in bib files)
 \usepackage[T1]{fontenc}
 % For Vietnamese characters
 % \usepackage[T5]{fontenc}
-% See https://www.latex-project.org/help/documentation/encguide.pdf for other character sets
+% See https:www.latex-project.org/help/documentation/encguide.pdf for other character sets
 
 % This assumes your files are encoded as UTF8
 \usepackage[utf8]{inputenc}
@@ -51,49 +54,82 @@
 
 \begin{document}
 
-\onecolumn
-
 \begin{center}
 {\Large\bfseries Pixel-level Certified Explanations via Randomized Smoothing
 \\ Application to Medical Imaging Classifiers Project Report \par}
-\author{Daniya Niazi \\
-\texttt{7062343,dani00003@stud.uni-saarland.de} \\
-Universit{\"a}t des Saarlandes}
+{\large Daniya Niazi \\}
+{\texttt{7062343, dani00003@stud.uni-saarland.de} \\}
+{Universit{\"a}t des Saarlandes}
 \end{center}
 
 \vspace{1em}
 \section{Introduction}
-This report documents the implementation of pixel-level certified explanations for medical imaging classifiers, based on \cite{anani2025pixel} and adapted to four datasets (ChestX-ray14, Brain MRI, APTOS, ISIC). The project focuses on producing attribution maps with provable per-pixel robustness guarantees using randomized smoothing and top-$K$ sparsification. In addition to standard medical datasets, a grid-based evaluation (Certified GridPG) is implemented to test whether certified important pixels align with a known target region.
 
-The goals are: (i) build a unified attribution pipeline across methods, (ii) certify attributions at the pixel level under $\ell_2$-bounded input perturbations, (iii) evaluate robustness and localization, and (iv) document deviations from the original paper introduced by practical implementation choices.
+Deep learning models now match human performance on many medical imaging tasks, but their opacity limits clinical adoption. Attribution methods explain model predictions by highlighting important image regions, but Ghorbani et al. showed these explanations are fragile: small input perturbations completely change the attribution map while the prediction stays the same. An attacker could manipulate both the diagnosis and its explanation without anyone noticing. Despite this problem, almost no work has certified the robustness of attributions in medical imaging.
+
+This report implements pixel-level certified explanations for medical imaging. Four datasets (ChestX-ray14, Brain MRI, APTOS fundus, ISIC dermoscopy) and five attribution methods are evaluated. Localization is evaluated via grid-based testing: The pipeline build 2×2 grids from real images where the correct region is known by construction. If a method fails on grids, its certified attributions on real medical images are suspect to some extent.
 
 \section{Background}
-\subsection{Attribution Methods and Their Fragility}
-Post-hoc attribution methods map an image to a heatmap of pixel importance for a predicted class. This work employs gradient-based (Integrated Gradients), activation-based (Grad-CAM), and perturbation-based (RISE, Occlusion) methods, plus LRP. While these methods are widely used, their outputs can be unstable: small, visually imperceptible perturbations can significantly change the heatmap without changing the prediction. This fragility motivates the need for certified explanations that provide robustness guarantees, not just qualitative visualization.
-\subsection{XAI in Medical Imaging: Necessity and
-Limitations}
-Medical decisions depend on localized visual evidence (lesions, opacities, tumors), so attribution maps are often used for sanity checks and clinical interpretability. However, medical images are high-stakes and sensitive to noise, artifacts, and domain shift. Unstable explanations can mislead clinicians or hide spurious correlations. Certified attributions aim to reduce this risk by stating, for each pixel, whether its importance label is robust within a provable radius.
+
+\subsection{Attribution Methods are Unstable}
+
+Attribution methods generate pixel importance maps for model predictions. Integrated Gradients, Grad-CAM, RISE, and similar techniques are now standard in medical imaging to satisfy regulatory requirements and support clinical decisions \citep{obermeyer2016predicting}. But Ghorbani et al.~(2019) \citep{ghorbani2019interpretation} showed these methods are \emph{fragile}: adding imperceptible noise ($\|\delta\|_2 \le 0.1$) drops the rank correlation between attribution maps to near zero while predictions stay correct (Figure \ref{fig:neuralnetwrokfragile}). 
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.9\linewidth]{attribution sample/neuralnetwrokfragile.png}
+    \caption{Targeted attack against feature importance map. Image is correctly classified as trailer truck. For all methods, the devised perturbation with e=8 was able to semantically meaningfully change the focus of saliency map to the cloud above the truck.}
+    \label{fig:neuralnetwrokfragile}
+\end{figure}
+
+% Through Hessian analysis, they showed this fragility stems from high dimensionality and non-linearity: small input changes place examples in regions with vastly different gradient landscapes, causing attribution instability independent of decision boundary proximity.
+
+Subramanya et al.~(2019) \citep{subramanya2019fooling} extended this to practical threats using adversarial patches occupying $\sim$8\% of images. They demonstrated (Figure \ref{fig:pathadversialcam}) simultaneous attacks on both predictions and interpretations across multiple methods, with particular vulnerability in Grad-CAM. Notably, their attacks succeeded even against GAINext, a model explicitly trained with Grad-CAM supervision to improve robustness, indicating that robustness training alone fails to address fundamental instability.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.9\linewidth]{attribution sample/pathadversialcam.png}
+    \caption{Fooling the Grad-CAM visualization with patch attack}
+    \label{fig:pathadversialcam}
+\end{figure}
+
+For medical imaging, these fragilities create actionable risks such as misled clinical judgment.
+
+\subsection{Medical XAI Lacks Robustness Evaluation}
+
+Jin et al.~(2022) \citep{jin2022evaluating} had 30 neurosurgeons evaluate 16 attribution methods. Most methods failed basic requirements: they highlighted plausible-looking regions that the model didn't actually use (removing them barely changed predictions), and they gave confident explanations for both correct and wrong diagnoses. But Jin et al. only tested quality, not robustness to adversarial attacks. Muhammad and Bendechache (2024) \citep{muhammad2024unveiling} reviewed 49 medical imaging XAI papers from 2015--2023. Not a single paper evaluated adversarial robustness. All used only classification accuracy. 
 
 
-\section{Pixel-Level Certification for
-Attributions on Medical Dataset}
+% \subsection{Empirical Evidence of Attribution Instability Across Architectures and Perturbations}
 
-\subsection{Overview}
-The paper \cite{anani2025pixel} pipeline is implemented in two settings:
-(i) standard medical datasets (ISIC, ChestX-ray14, Brain MRI, APTOS) using single-head classifiers, and
-(ii) a grid-based setting for Certified GridPG, where each grid cell contains a different class image and the target cell is known. In both cases, attribution maps are computed, sparsified to top-$K$ pixels, and randomized smoothing is applied to certify the per-pixel labels.
+% Recent empirical studies confirm that instability is systematic, not method-specific. Repetto et al.~(2025) \citep{repetto2025robustness} evaluated 10 attribution methods across 8 architectures under natural corruptions (JPEG, noise, contrast) and adversarial attacks, finding:
+% \begin{itemize}
+% \item \textbf{Architecture-dependent failure}: no single method remains robust across architectures SmoothGrad excels on CNNs but fails on Vision Transformers.
+% \item \textbf{Spatial collapse under perturbation}: even when rankings correlate, spatial localization degrades significantly, via newly introduced metric $\rho$ (spatial semantic agreement).
+% \item \textbf{No universal solution}: different methods excel under different perturbation types, indicating fundamental rather than engineering-level instability.
+% \end{itemize}
 
-The implementation follows a unified workflow: compute attributions, sparsify to top-$K$, apply randomized smoothing, and output a ternary certified map with labels 1 (important), 0 (unimportant), or abstain.
+% Panboonyuen (2026) \citep{panboonyuen2026faithfulness} focused on Grad-CAM's faithfulness, finding: localization accuracy collapses on Vision Transformers; feature ablation often fails to reduce confidence despite highlighted regions; and Grad-CAM frequently highlights spurious correlations (backgrounds, device artifacts).
 
-\subsection{Paper Implementation and Algorithm}
+\subsection{Prior Work Only Certifies Image-Level Metrics}
+
+Existing certified attribution methods \citep{levine2019certifiably, wang2023practical} prove that a global similarity score stays stable under perturbations. For example, they guarantee that the top-$k$ pixels have 80\% overlap before and after adding noise. But this doesn't tell a clinician which specific pixels are robustly important. A global score can look good even when only a small region is stable. Worse, a doctor can't use an aggregate statistic, they need to know which lesion or anatomical structure matters.
+
+Pixel-level certification fixes this: each pixel gets its own certificate. Under $\ell_2$ perturbations of radius 0.101, pixel $(i,j)$ is guaranteed important (or unimportant). This is what medical imaging needs.
+
+\subsection{Medical Imaging Challenges}
+
+Medical images come in different modalities (X-ray, MRI, fundus photos, dermoscopy) with different visual properties. X-rays are grayscale, fundus images have complex color patterns, dermoscopy has texture and hair artifacts. Diagnosis often requires millimeter precision, a melanoma boundary, a small lung nodule. Addtionally, medical datasets have severe class imbalance and domain shift.
+
+This project tests pixel-level certification on four datasets (ChestX-ray14, Brain MRI, APTOS fundus, ISIC dermoscopy) using randomized smoothing and top-$K$ sparsification. We want to know: Does certification work across modalities? Which attribution methods certify better? Where does it fail?
+
+\section{Pixel-Level Certification Methodology}
 
 This section presents the complete certification workflow with formal algorithms for each stage: attribution computation, top-$K$ sparsification, randomized smoothing, and final certification.
 
-\subsubsection{Overview}
+Given an image $x$, the certification pipeline consists of four steps: (1) compute attribution heatmap $h(x)$ using a chosen attribution method, (2) keep top $K\%$ pixels via sparsification, (3) add Gaussian noise and aggregate across $n$ samples, (4) certify pixels as important/unimportant/abstain based on consistency threshold $\tau$.
 
-Given image $x$, the pipeline: (1) compute attribution heatmap, (2) keep top $K\%$ pixels, (3) add noise and aggregate, (4) certify pixels as important/unimportant/abstain. Any perturbation $\|\delta\|_2 \le R = \sigma \Phi^{-1}(\tau)$ preserves certified labels.
-
-\subsubsection{Algorithm 1: Top-$K$ Sparsification}
+\subsection{Algorithm 1: Top-$K$ Sparsification}
 
 \begin{algorithm}[H]
 \caption{Top-$K$ Sparsification}
@@ -107,7 +143,7 @@ Given image $x$, the pipeline: (1) compute attribution heatmap, (2) keep top $K\
 \end{algorithmic}
 \end{algorithm}
 
-\subsubsection{Algorithm 2: Randomized Smoothing}
+\subsection{Algorithm 2: Randomized Smoothing}
 
 \begin{algorithm}[H]
 \caption{Randomized Smoothing}
@@ -125,7 +161,7 @@ Given image $x$, the pipeline: (1) compute attribution heatmap, (2) keep top $K\
 \end{algorithmic}
 \end{algorithm}
 
-\subsubsection{Algorithm 3: Certification}
+\subsection{Algorithm 3: Certification}
 
 \begin{algorithm}[H]
 \caption{Certification}
@@ -203,7 +239,7 @@ The dataset exhibits significant class imbalance, with melanocytic nevi comprisi
 
 \subsubsection{Dataset Configuration}
 
-All datasets were split into training, validation, and test sets using an 80/10/10 ratio. Images from all datasets were resized to a uniform resolution of $224 \times 224$ pixels to ensure consistency across models and attribution methods.
+All datasets were split into training, validation, and test sets using an 80/10/10 ratio. All images were resized to $224 \times 224$ pixels for consistency across models and attribution methods.
 
 \begin{table}[h!]
 \centering
@@ -271,25 +307,25 @@ ISIC Skin Lesion
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=1\linewidth]{confusion matrix/brain_mri_confusion_matrix.png}
+\includegraphics[width=0.7\linewidth]{confusion matrix/brain_mri_confusion_matrix.png}
 \caption{Confusion Matrix - Brain MRI}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=1\linewidth]{confusion matrix/chestxray_confusion_matrix.png}
+\includegraphics[width=0.7\linewidth]{confusion matrix/chestxray_confusion_matrix.png}
 \caption{Confusion Matrix - Chest X-ray}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=1\linewidth]{confusion matrix/confusion_matrix.png}
+\includegraphics[width=0.7\linewidth]{confusion matrix/confusion_matrix.png}
 \caption{Confusion Matrix - ISIC}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=1\linewidth]{confusion matrix/fundus_confusion_matrix.png}
+\includegraphics[width=0.7\linewidth]{confusion matrix/fundus_confusion_matrix.png}
 \caption{Confusion Matrix - APTOS Fundus}
 \end{figure}
 
@@ -300,16 +336,16 @@ ISIC Skin Lesion
 Although EfficientNet-B1 achieves the highest validation accuracy across all datasets, ResNet-18 was selected as the primary model for extensive certification experiments (Experiment 2). This choice reflects a trade-off between predictive performance, computational efficiency, and attribution interpretability, as illustrated on representative samples (e.g., 10 ISIC images shown in Figure~\ref{fig:isic}). In addition, ResNet-18, MobileNetV2, DenseNet-121, and EfficientNet-B1 were evaluated on a limited subset of samples ($N=5$ per dataset) to analyze architectural differences in certified attribution behavior.
 
 
-\newpage
+
 \subsection{Attribution Methods: Settings and Implementation}
 
 This section describes the attribution methods used in this work. For each method, the intuition is briefly explained, a simplified pseudo-algorithm is presented, and the concrete hyperparameter settings used in the implementation are described. All methods produce pixel-level heatmaps compatible with the certification framework.
 
-% ---------------------------------------------------------
+% , , , , , , , , , , , , , , , , , , , 
 \subsubsection{Integrated Gradients}
-% ---------------------------------------------------------
+% , , , , , , , , , , , , , , , , , , , 
 
-\paragraph{Method intuition.}
+\paragraph{Method intuition:}
 Integrated Gradients (IG) estimates pixel importance by averaging gradients along a straight-line path from a baseline image to the input image, reducing sensitivity to local gradient noise.
 
 \begin{algorithm}[H]
@@ -328,17 +364,17 @@ Integrated Gradients (IG) estimates pixel importance by averaging gradients alon
 \end{algorithmic}
 \end{algorithm}
 
-\paragraph{Implementation details.}
+\paragraph{Implementation details:}
 Integrated Gradients uses a zero-valued (black) image as the baseline and approximates the path integral using 50 uniformly spaced interpolation steps. Gradients are accumulated along the interpolation path, multiplied by the input difference, and summed across channels to obtain a pixel-level heatmap. The final attribution map is normalized to the range $[0,1]$ for visualization and certification compatibility.
 
-\paragraph{Remarks.}
+\paragraph{Remarks:}
 Integrated Gradients produces smooth and spatially coherent attribution maps due to gradient averaging along the interpolation path. This implicit smoothing improves robustness to small input perturbations, which explains its consistently strong certification performance across datasets. However, the method requires multiple forward and backward passes per image, making it more computationally expensive than single-pass gradient methods.
 
-% ---------------------------------------------------------
+% , , , , , , , , , , , , , , , , , , , 
 \subsubsection{Grad-CAM}
-% ---------------------------------------------------------
+% , , , , , , , , , , , , , , , , , , , 
 
-\paragraph{Method intuition.}
+\paragraph{Method intuition:}
 Grad-CAM highlights spatial regions by weighting convolutional feature maps using gradients of the target class, producing coarse but stable explanations.
 
 \begin{algorithm}[H]
@@ -356,17 +392,17 @@ Grad-CAM highlights spatial regions by weighting convolutional feature maps usin
 \end{algorithmic}
 \end{algorithm}
 
-\paragraph{Implementation details.}
-In our implementation, Grad-CAM targets the final convolutional block (\texttt{layer4}) of the network. The resulting low-resolution activation map is upsampled to $224 \times 224$ using bilinear interpolation and passed through a ReLU operation to remove negative contributions. This produces a coarse but spatially stable attribution map aligned with the input image.
+\paragraph{Implementation details:}
+In this implementation, Grad-CAM targets the final convolutional block (\texttt{layer4}) of the network. The resulting low-resolution activation map is upsampled to $224 \times 224$ using bilinear interpolation and passed through a ReLU operation to remove negative contributions. This produces a coarse but spatially stable attribution map aligned with the input image.
 
-\paragraph{Remarks.}
-Grad-CAM provides stable but coarse explanations, as relevance is derived from low-resolution convolutional feature maps. The inherent spatial downsampling acts as an implicit regularizer, improving robustness under certification. However, this comes at the cost of localization precision, particularly for small or fine-grained structures in medical images.
+\paragraph{Remarks:}
+Grad-CAM provides stable but coarse explanations due to low-resolution feature maps. Spatial downsampling acts as implicit regularization, improving robustness. However, this reduces localization precision for fine-grained structures.
 
-% ---------------------------------------------------------
+% , , , , , , , , , , , , , , , , , , , 
 \subsubsection{Layer-wise Relevance Propagation (LRP)}
-% ---------------------------------------------------------
+% , , , , , , , , , , , , , , , , , , , 
 
-\paragraph{Method intuition.}
+\paragraph{Method intuition:}
 LRP redistributes the prediction score backward through the network while conserving total relevance, yielding sharp and localized explanations.
 
 \begin{algorithm}[H]
@@ -385,17 +421,17 @@ LRP redistributes the prediction score backward through the network while conser
 \end{algorithmic}
 \end{algorithm}
 
-\paragraph{Implementation details.}
+\paragraph{Implementation details:}
 LRP is implemented using the Zennit framework with the $\epsilon$-rule ($\epsilon = 10^{-6}$) to ensure numerical stability during relevance propagation. Channel-wise relevance maps are summed and converted to absolute values to obtain pixel-level attributions. Importantly, normalization is applied only after certification to preserve the relative ranking of relevance scores.
 
-\paragraph{Remarks.}
-LRP generates sharp and highly localized attribution maps, often aligning well with visually salient regions. However, relevance propagation is sensitive to activation discontinuities (e.g., ReLU), leading to high variability under small perturbations. Without explicit robustness constraints, this sensitivity limits certification performance despite strong qualitative results on selected samples.
+\paragraph{Remarks:}
+LRP generates sharp and localized attribution maps. However, relevance propagation is sensitive to activation discontinuities (ReLU), leading to high variability under perturbations and limiting certification performance.
 
-% ---------------------------------------------------------
+% , , , , , , , , , , , , , , , , , , , 
 \subsubsection{RISE}
-% ---------------------------------------------------------
+% , , , , , , , , , , , , , , , , , , , 
 
-\paragraph{Method intuition.}
+\paragraph{Method intuition:}
 RISE estimates pixel importance by randomly masking parts of the image and measuring how the model’s prediction changes.
 
 \begin{algorithm}[H]
@@ -414,17 +450,17 @@ RISE estimates pixel importance by randomly masking parts of the image and measu
 \end{algorithmic}
 \end{algorithm}
 
-\paragraph{Implementation details.}
+\paragraph{Implementation details:}
 RISE generates 500 random binary masks at a coarse resolution of $7 \times 7$, which are upsampled to the input image size using bilinear interpolation. Each masked image is forwarded through the model, and the target class logit is used as the weighting score for attribution accumulation. The final attribution map is normalized after aggregating contributions from all masks.
 
-\paragraph{Remarks.}
-Due to its stochastic nature, RISE exhibits high variance. Under certification, this variance is amplified, resulting in low robustness (20--28\%). The method is also computationally expensive due to the large number of forward passes.
+\paragraph{Remarks:}
+RISE's stochastic nature produces high variance, which is amplified under certification. The method shows low robustness (20--28\%) and is computationally expensive.
 
-% ---------------------------------------------------------
+% , , , , , , , , , , , , , , , , , , , 
 \subsubsection{Occlusion}
-% ---------------------------------------------------------
+% , , , , , , , , , , , , , , , , , , , 
 
-\paragraph{Method intuition.}
+\paragraph{Method intuition:}
 Occlusion measures importance by systematically hiding image patches and observing the drop in prediction confidence.
 
 \begin{algorithm}[H]
@@ -443,11 +479,11 @@ Occlusion measures importance by systematically hiding image patches and observi
 \end{algorithmic}
 \end{algorithm}
 
-\paragraph{Implementation details.}
+\paragraph{Implementation details:}
 Occlusion uses square patches of size $16 \times 16$ with a stride of 8 pixels, resulting in overlapping occlusions across the image. Occluded regions are replaced with the mean pixel value of the image to avoid introducing artificial artifacts. The resulting low-resolution attribution map is then upsampled to full image resolution using bilinear interpolation.
 
-\paragraph{Remarks.}
-Occlusion-based methods are highly sensitive to patch alignment. Small input shifts change which regions are occluded, leading to unstable attribution maps. Combined with high computational cost, this explains the low certification rates (12--22\%) observed.
+\paragraph{Remarks:}
+Occlusion is sensitive to patch alignment: small input shifts change occluded regions, producing unstable maps. This explains low certification rates (12--22\%).
 
 
 
@@ -525,13 +561,13 @@ This section presents certified attribution visualizations across all datasets. 
 
 All certification experiments follow a consistent randomized smoothing protocol across datasets and attribution methods to ensure fair and comparable evaluation. Given an input image $x$ and its attribution heatmap $h(x)$, robustness is assessed by injecting Gaussian noise into the input and analyzing the stability of the resulting attribution maps.
 
-Specifically, for each image, we generate $N = 100$ noisy samples of the form
+Specifically, for each image, $N = 100$ noisy samples are generated of the form
 \[
 x^{(i)} = x + \epsilon^{(i)}, \quad \epsilon^{(i)} \sim \mathcal{N}(0, \sigma^2 I),
 \]
-where $\sigma = 0.15$ is fixed for all experiments. For each noisy sample, the attribution method is recomputed, producing a set of noisy attribution maps that are subsequently aggregated into a smoothed sparsified (SS) attribution using the Top-K sparsification procedure described in Algorithm~\ref{alg:topk_sparsification}.
+where $\sigma = 0.15$ is fixed for all experiments. For each noisy sample, the attribution method is recomputed, producing a set of noisy attribution maps that are subsequently aggregated into a smoothed sparsified (SS) attribution.
 
-Certification is performed following the randomized smoothing approach (Algorithm~\ref{alg:randomized_smoothing}) by thresholding the smoothed attribution according to a confidence parameter $\tau = 0.75$. A pixel is considered \emph{certified} if its attribution label remains consistently above the threshold across noisy samples within the certified radius induced by $\sigma$, as formalized in Algorithm~\ref{alg:certification}. Pixels that do not meet this consistency requirement are marked as abstained. Certification is evaluated at three sparsity levels corresponding to the top $K=\{5\%, 25\%, 50\%\}$ most salient pixels.
+Certification is performed by thresholding the smoothed attribution according to a confidence parameter $\tau = 0.75$. A pixel is considered \emph{certified} if its attribution label remains consistently above the threshold across noisy samples within the certified radius induced by $\sigma$. Pixels that do not meet this consistency requirement are marked as abstained. Certification is evaluated at three sparsity levels corresponding to the top $K=\{5\%, 25\%, 50\%\}$ most salient pixels.
 
 The same certification parameters ($\sigma$, $N$, $\tau$, and $K$ values) are applied uniformly across all datasets and models. This standardized setup ensures that observed differences in certification behavior are attributable to dataset characteristics or attribution methods rather than hyperparameter tuning.
 
@@ -594,6 +630,34 @@ The same certification parameters ($\sigma$, $N$, $\tau$, and $K$ values) are ap
 \includegraphics[width=1\linewidth]{certifcation/isic/resnet18_img371_paper_style.png}
 \caption{Certification visualizations for ISIC Skin Lesion Sample 2 using ResNet-18.}
 \end{figure}
+
+\section{Evaluation: Robustness and Faithfulness}
+
+This section presents a comprehensive evaluation of certified attributions along two complementary dimensions: robustness and faithfulness. Robustness quantifies the proportion of pixels whose attribution labels remain stable under input perturbations, while faithfulness measures whether certified important pixels actually contribute to the model's prediction.
+
+\subsection{Robustness Via \%Certified}
+
+Robustness is evaluated by measuring the percentage of pixels that receive a certified label (either important or unimportant) rather than abstaining. A higher certification rate indicates that the attribution method produces stable, predictable importance assignments that remain consistent under $\ell_2$-bounded perturbations within the certified radius $R = \sigma \Phi^{-1}(\tau) \approx 0.101$.
+For each image, the following is computed:
+$$
+\text{Robustness} = \frac{\#\{\text{certified pixels (important or unimportant)}\}}{\text{total pixels}} \times 100\%
+$$
+
+Robustness decreases monotonically as the sparsity parameter $K$ increases, since maintaining consistent top-$K$ rankings becomes more difficult for larger $K$. Attribution methods with inherent smoothness (e.g., Integrated Gradients, Grad-CAM) achieve higher robustness than methods sensitive to local perturbations (e.g., RISE, Occlusion, LRP).
+
+\subsection{Faithfulness Via Certified Pixel Deletion}
+
+Faithfulness evaluates whether pixels certified as important actually influence the model's prediction. This is measured using a pixel deletion curve: certified important pixels are removed in order of decreasing attribution strength, and the model's confidence on the target class is tracked after each deletion step.
+For a given sparsity level $K$, the following steps are applied:
+\begin{enumerate}
+\item Identify all pixels certified as important (label = 1).
+\item Rank these pixels by their original attribution magnitude.
+\item Sequentially replace the top $p\%$ of certified important pixels with a baseline value (mean pixel intensity).
+\item Measure the remaining model confidence at each deletion fraction $p \in \{10\%, 20\%, ..., 100\%\}$.
+\end{enumerate}
+
+A steep drop in confidence indicates high faithfulness: removing certified important pixels significantly degrades the prediction, confirming that these pixels genuinely contribute to the model's decision. Conversely, a shallow curve suggests that certified pixels are not truly important.
+
 
 
 \subsection{Experiment 1 for Pixel-Level Certification: Cross-Architecture Comparison}
@@ -669,6 +733,8 @@ Fundus     & 51.8 & 300 \\
 \end{tabular}
 \end{table}
 
+Table \ref{tab:exp1_model_avg} demonstrate that \textbf{architecture choice has minimal impact on relative method rankings}. While absolute certification rates vary slightly across ResNet-18, DenseNet-121, MobileNetV2, and EfficientNet-B1, the robustness ordering among attribution methods remains consistent. This suggests that certification behavior is primarily determined by the attribution method's algorithmic properties rather than the underlying model architecture.
+
 \begin{table}[h!]
 \centering
 \caption{Experiment 1: Average percentage of certified pixels per model and dataset.}
@@ -686,6 +752,98 @@ Fundus     & 48.83 & 46.41 & \textbf{54.22} & 52.86 \\
 \end{tabular}
 }
 \end{table}
+
+
+
+
+\subsubsection{Experiment 1: Robustness}
+
+The robustness evaluation reveals that \textbf{certification robustness decreases monotonically with increasing sparsity $K$} across all datasets, architectures, and attribution methods. Secondly, \textbf{gradient-based methods (IG, Grad-CAM) achieve substantially higher certification rates than perturbation-based methods (RISE, Occlusion, LRP)}. This superiority might stems from their inherent smoothness: gradient-based attributions change continuously and predictably under input perturbations, whereas perturbation-based methods exhibit more erratic behavior due to their reliance on sampling or masking operations.
+
+
+
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{experiment1/robustness/brain_mri/robustness_stacked.png}
+\caption{Robustness certification results for Brain MRI across four ResNet-18 architectures for 5 images.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{experiment1/robustness/chestxray/robustness_stacked.png}
+\caption{Robustness certification results for Chest X-ray across four ResNet-18 architectures for 5 images.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{experiment1/robustness/fundus/robustness_stacked.png}
+\caption{Robustness certification results for APTOS 2019 across four ResNet-18 architectures for 5 images.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{experiment1/robustness/isic/robustness_stacked.png}
+\caption{Robustness certification results for ISIC Skin Lesion across four ResNet-18 architectures for 5 images.}
+\end{figure}
+
+
+Finally Figure \ref{fig:exp_1_dataset_cert} shows, \textbf{dataset characteristics has influence on certification}. Brain MRI, featuring high-contrast grayscale images, achieves the highest certification rates (68\%). In contrast, APTOS fundus images, characterized by complex color patterns and distributed vascular structures, exhibit the lowest certification rates (50\%). This demonstrates that medical imaging modality specifically, color complexity and texture patterns directly could impacts attribution robustness.
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{experiment1/avg_robustness.png}
+    \caption{Average Pixel Certified across dataset}
+    \label{fig:exp_1_dataset_cert}
+\end{figure}
+
+\subsubsection{Experiment 1: Faithfulness}
+
+Many faithfulness curves exhibit concerning patterns despite expected declining trends. Ideally, curves should decrease \emph{smoothly and monotonically}: removing certified important pixels should steadily reduce confidence. However, observed curves show:
+
+\begin{itemize}
+\item \textbf{Flat or near-flat curves:} Removing up to 50-70\% of "certified important" pixels produces minimal confidence drop ($<10\%$). This suggests these pixels are not genuinely important to the model's decision, contradicting the attribution.
+\item \textbf{Non-monotonic behavior:} Confidence \emph{increases} after deleting certain pixel fractions, then drops again. This counter-intuitive pattern indicates that some certified pixels may actually be \emph{suppressing} the prediction or that the deletion baseline introduces spurious signals.
+\item \textbf{High inter-method variance:} On the same image, different attribution methods produce radically different curve shapes, suggesting attribution instability rather than robust signal.
+\end{itemize}
+
+These irregularities raise the possibility that randomized smoothing may be \emph{certifying noise}, pixel patterns that happen to be consistent across noisy samples by chance rather than reflecting genuine model reasoning. This concern is amplified by grid localization failures (Section~\ref{tab:grid_isic_localization}), where certified pixels fail to align with known ground truth. However, Brain MRI and ISIC curves show modest signal via Integrated Gradients and Grad-CAM respectively.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{experiment1/faithfullness/brain_mri/faithfulness_confidence_curves.png}
+\caption{Faithfulness confidence curves for Brain MRI across four ResNet-18 architectures for 5 images at $K=\{5\%,25\%,50\%\}$.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{experiment1/faithfullness/chestxray/faithfulness_confidence_curves.png}
+\caption{Faithfulness confidence curves for Chest X-ray across four ResNet-18 architectures for 5 images at $K=\{5\%,25\%,50\%\}$.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{experiment1/faithfullness/fundus/faithfulness_confidence_curves.png}
+\caption{Faithfulness confidence curves for APTOS 2019 across four ResNet-18 architectures for 5 images at $K=\{5\%,25\%,50\%\}$.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{experiment1/faithfullness/isic/faithfulness_confidence_curves.png}
+\caption{Faithfulness confidence curves for ISIC Skin Lesion across four ResNet-18 architectures for 5 images at $K=\{5\%,25\%,50\%\}$.}
+\end{figure}
+
+\textbf{Average Faithfullness across dataset}
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{experiment1/faithfullness/overall_confidence_curves.png}
+    \caption{Average Confidence drop across dataset with Resenet18 Model for experiment 1}
+    \label{fig:chestxray}
+\end{figure}
+
 
 
 
@@ -732,139 +890,13 @@ Fundus     & 47.57 \\
 \end{table}
 
 
-\subsection{Evaluation: Robustness and Faithfulness}
-
-This section presents a comprehensive evaluation of certified attributions along two complementary dimensions: robustness and faithfulness. Robustness quantifies the proportion of pixels whose attribution labels remain stable under input perturbations, while faithfulness measures whether certified important pixels actually contribute to the model's prediction.
-
-\subsubsection{Robustness Via \%Certified}
-
-Robustness is evaluated by measuring the percentage of pixels that receive a certified label (either important or unimportant) rather than abstaining. A higher certification rate indicates that the attribution method produces stable, predictable importance assignments that remain consistent under $\ell_2$-bounded perturbations within the certified radius $R = \sigma \Phi^{-1}(\tau) \approx 0.101$.
-For each image, we compute:
-$$
-\text{Robustness} = \frac{\#\{\text{certified pixels (important or unimportant)}\}}{\text{total pixels}} \times 100\%
-$$
-
-Robustness decreases monotonically as the sparsity parameter $K$ increases, since maintaining consistent top-$K$ rankings becomes more difficult for larger $K$. Attribution methods with inherent smoothness (e.g., Integrated Gradients, Grad-CAM) achieve higher robustness than methods sensitive to local perturbations (e.g., RISE, Occlusion, LRP).
-
-\subsubsection{Faithfulness Via Certified Pixel Deletion}
-
-Faithfulness evaluates whether pixels certified as important actually influence the model's prediction. We measure this using a pixel deletion curve: certified important pixels are removed in order of decreasing attribution strength, and the model's confidence on the target class is tracked after each deletion step.
-For a given sparsity level $K$, we:
-\begin{enumerate}
-\item Identify all pixels certified as important (label = 1).
-\item Rank these pixels by their original attribution magnitude.
-\item Sequentially replace the top $p\%$ of certified important pixels with a baseline value (mean pixel intensity).
-\item Measure the remaining model confidence at each deletion fraction $p \in \{10\%, 20\%, ..., 100\%\}$.
-\end{enumerate}
-
-A steep drop in confidence indicates high faithfulness: removing certified important pixels significantly degrades the prediction, confirming that these pixels genuinely contribute to the model's decision. Conversely, a shallow curve suggests that certified pixels are not truly important.
-
-\subsubsection{Experiment 1: Robustness}
-\begin{figure}[H]
-\centering
-\includegraphics[width=1\linewidth]{experiment1/robustness/brain_mri/robustness_stacked.png}
-\caption{Robustness certification results for Brain MRI across four ResNet-18 architectures for 5 images.}
-\end{figure}
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=1\linewidth]{experiment1/robustness/chestxray/robustness_stacked.png}
-\caption{Robustness certification results for Chest X-ray across four ResNet-18 architectures for 5 images.}
-\end{figure}
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=1\linewidth]{experiment1/robustness/fundus/robustness_stacked.png}
-\caption{Robustness certification results for APTOS 2019 across four ResNet-18 architectures for 5 images.}
-\end{figure}
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=1\linewidth]{experiment1/robustness/isic/robustness_stacked.png}
-\caption{Robustness certification results for ISIC Skin Lesion across four ResNet-18 architectures for 5 images.}
-\end{figure}
-
-
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1\linewidth]{experiment1/avg_robustness.png}
-    \caption{Average Pixel Certified across dataset}
-    \label{fig:chestxray}
-\end{figure}
-
-\paragraph{Robustness Insights from Cross-Architecture Comparison.}
-The robustness evaluation in Experiment 1 reveals several key findings. First, \textbf{certification robustness decreases monotonically with increasing sparsity $K$} across all datasets, architectures, and attribution methods. This trend reflects the fundamental challenge of maintaining stable top-$K$ rankings under $\ell_2$-bounded perturbations: as $K$ increases, more pixels must be ranked consistently, making certification progressively harder.
-
-Second, \textbf{gradient-based methods (IG, Grad-CAM) achieve substantially higher certification rates than perturbation-based methods (RISE, Occlusion, LRP)}. This superiority stems from their inherent smoothness: gradient-based attributions change continuously and predictably under input perturbations, whereas perturbation-based methods exhibit more erratic behavior due to their reliance on sampling or masking operations.
-
-Third, \textbf{architecture choice has minimal impact on relative method rankings}. While absolute certification rates vary slightly across ResNet-18, DenseNet-121, MobileNetV2, and EfficientNet-B1, the robustness ordering among attribution methods remains consistent. This suggests that certification behavior is primarily determined by the attribution method's algorithmic properties rather than the underlying model architecture.
-
-Finally, \textbf{dataset characteristics strongly influence certification difficulty}. Brain MRI, featuring high-contrast grayscale images with well-localized tumors, achieves the highest certification rates (68\%). In contrast, APTOS fundus images, characterized by complex color patterns and distributed vascular structures, exhibit the lowest certification rates (52\%). This demonstrates that medical imaging modality—specifically, color complexity and texture patterns—directly impacts attribution robustness.
-
-\subsubsection{Experiment 1: Faithfullness}
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=1\linewidth]{experiment1/faithfullness/brain_mri/faithfulness_confidence_curves.png}
-\caption{Faithfulness confidence curves for Brain MRI across four ResNet-18 architectures for 5 images at $K=\{5\%,25\%,50\%\}$.}
-\end{figure}
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=1\linewidth]{experiment1/faithfullness/chestxray/faithfulness_confidence_curves.png}
-\caption{Faithfulness confidence curves for Chest X-ray across four ResNet-18 architectures for 5 images at $K=\{5\%,25\%,50\%\}$.}
-\end{figure}
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=1\linewidth]{experiment1/faithfullness/fundus/faithfulness_confidence_curves.png}
-\caption{Faithfulness confidence curves for APTOS 2019 across four ResNet-18 architectures for 5 images at $K=\{5\%,25\%,50\%\}$.}
-\end{figure}
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=1\linewidth]{experiment1/faithfullness/isic/faithfulness_confidence_curves.png}
-\caption{Faithfulness confidence curves for ISIC Skin Lesion across four architectures for 5 validation images at $K=\{5\%,25\%,50\%\}$. Dermoscopic images exhibit varied faithfulness patterns across methods and architectures. Gradient-based methods demonstrate more consistent faithfulness, while perturbation-based methods show higher variance in confidence degradation.}
-\label{fig:exp1_faithfulness_isic}
-\end{figure}
-
-\textbf{Average Faithfullness across dataset}
-
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1\linewidth]{experiment1/faithfullness/overall_confidence_curves.png}
-    \caption{Average confidence drop across all four datasets using ResNet-18 for Experiment 1. The curve aggregates faithfulness behavior across Brain MRI, Chest X-ray, APTOS, and ISIC. Steeper initial drop indicates that the most important certified pixels (first 10-30\% removed) are highly faithful, while the plateau suggests diminishing marginal contribution from lower-ranked certified pixels.}
-    \label{fig:exp1_overall_faithfulness}
-\end{figure}
-
-\paragraph{Faithfulness Insights from Pixel Deletion Curves.}
-The faithfulness evaluation complements robustness analysis by measuring whether certified important pixels genuinely contribute to model predictions. The pixel deletion curves reveal consistent patterns across datasets and architectures.
-
-\textbf{Gradient-based methods demonstrate superior faithfulness.} IG and Grad-CAM consistently produce the steepest confidence drops when certified important pixels are removed, confirming that their top-ranked pixels are genuinely influential. Removing just 20-30\% of certified important pixels often reduces model confidence by 40-60\%, validating high faithfulness.
-
-\textbf{Perturbation-based methods show shallower faithfulness curves.} RISE, Occlusion, and LRP exhibit more gradual confidence degradation, suggesting that their certified important pixels are less consistently aligned with the model's decision-making process. This faithfulness deficit partially explains why these methods also achieve lower robustness: unstable attributions are less likely to be both robust and faithful.
-
-\textbf{Faithfulness degrades more slowly at higher $K$ values.} At $K=50\%$, confidence curves are shallower than at $K=5\%$, indicating that lower-ranked certified pixels contribute less to predictions. This aligns with the intuition that only the most salient pixels are critical for classification, while expanding to larger $K$ includes less influential regions.
-
-\textbf{Architecture effects on faithfulness are minimal.} Similar to robustness, the four evaluated architectures (ResNet-18, DenseNet-121, MobileNetV2, EfficientNet-B1) exhibit nearly identical faithfulness patterns. This cross-architecture consistency reinforces that faithfulness is primarily an attribution method property rather than a model-specific characteristic.
-
-\paragraph{Concerning Observations: Erratic Faithfulness Curves.}
-Despite the overall trends described above, many individual faithfulness curves exhibit concerning patterns that warrant critical examination. Ideally, pixel deletion curves should decrease \emph{smoothly and monotonically}: as more certified important pixels are removed, model confidence should steadily decline. However, several observed curves show:
-
-\begin{itemize}
-\item \textbf{Flat or near-flat curves:} Removing up to 50-70\% of "certified important" pixels produces minimal confidence drop ($<10\%$). This suggests these pixels are not genuinely important to the model's decision, contradicting the attribution.
-\item \textbf{Non-monotonic behavior:} Confidence \emph{increases} after deleting certain pixel fractions, then drops again. This counter-intuitive pattern indicates that some certified pixels may actually be \emph{suppressing} the prediction or that the deletion baseline introduces spurious signals.
-\item \textbf{High inter-method variance:} On the same image, different attribution methods produce radically different curve shapes, suggesting attribution instability rather than robust signal.
-\end{itemize}
-
-These irregularities raise the possibility that randomized smoothing, rather than filtering unstable attributions, may be \emph{certifying noise}—pixel patterns that happen to be consistent across noisy samples by chance rather than reflecting genuine model reasoning. This concern is amplified by the grid localization failures (Section~\ref{tab:grid_isic_localization}), where certified pixels completely fail to align with known ground truth.
-
 % EXPERIMENT 2
 
 
 \subsubsection{Experiment 2: Robustness}
+
+The dataset ranking observed in Experiment 1 Brain MRI (68\%) > Chest X-ray/ISIC (59\%, 54\%) > APTOS (48\%) is preserved in Experiment 2, confirming that certification difficulty is inherently tied to dataset characteristics rather than sample-specific artifacts. With 100 images per dataset, the gap between gradient-based methods (IG, Grad-CAM) and perturbation-based methods (RISE, Occlusion, LRP) becomes more statistically significant. IG consistently achieves 10-20\% higher certification rates than RISE and Occlusion across all datasets.
+
 \begin{figure}[H]
 \centering
 \includegraphics[width=1\linewidth]{experiment2/robustness/mri/robustness_stacked.png}
@@ -889,7 +921,7 @@ These irregularities raise the possibility that randomized smoothing, rather tha
 \caption{Robustness certification results for ISIC Skin Lesion using ResNet-18.}
 \end{figure}
 
-
+ Both APTOS and ISIC (color datasets) exhibit systematically lower robustness and more variable faithfulness compared to Brain MRI and Chest X-ray (grayscale datasets). This pattern holds even when controlling for sample size, architecture, and hyperparameters, suggesting that color information introduces fundamental challenges for attribution stability.
 
 \begin{figure}[H]
     \centering
@@ -903,11 +935,13 @@ These irregularities raise the possibility that randomized smoothing, rather tha
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{experiment2/robustness/method_by_dataset.png}
-    \caption{Average Pixel Certified across dataset - Attribution Method Di}
+    \caption{Average Pixel Certified across dataset - Attribution Method Distribution}
     \label{fig:chestxray}
 \end{figure}
 
-\subsubsection{Experiment 2: Faithfullness}
+\subsubsection{Experiment 2: Faithfulness}
+
+Scaling to 100 images per dataset does not resolve the faithfulness issues. For several methods, confidence remains high even after large deletions, suggesting limited decision relevance.
 
 \begin{figure}[H]
 \centering
@@ -943,42 +977,14 @@ These irregularities raise the possibility that randomized smoothing, rather tha
     \label{fig:chestxray}
 \end{figure}
 
-\paragraph{Scalability Validation and Large-Scale Insights.}
-Experiment 2 extends the certification evaluation from 5 images per dataset to 100 images per dataset, scaling the total evaluation from 80 samples (Experiment 1: 4 architectures × 5 images × 4 datasets) to 400 samples (Experiment 2: 1 architecture × 100 images × 4 datasets). This large-scale evaluation validates the generalizability of findings from Experiment 1 and provides stronger statistical confidence in observed trends.
-
-\textbf{Robustness patterns remain consistent at scale.} The dataset ranking observed in Experiment 1—Brain MRI (68\%) > Chest X-ray/ISIC (59\%, 54\%) > APTOS (48\%)—is preserved in Experiment 2, confirming that certification difficulty is inherently tied to dataset characteristics rather than sample-specific artifacts. The monotonic decrease in certification as $K$ increases continues to hold across all 400 samples, reinforcing the fundamental challenge of certifying larger top-$K$ sets.
-
-\textbf{Method-wise performance differences become more pronounced.} With 100 images per dataset, the gap between gradient-based methods (IG, Grad-CAM) and perturbation-based methods (RISE, Occlusion, LRP) becomes more statistically significant. IG consistently achieves 10-20\% higher certification rates than RISE and Occlusion across all datasets, demonstrating that smoothness-induced robustness is not a small-sample phenomenon but a fundamental property.
-
-\textbf{Faithfulness curves show reduced variance.} Aggregating over 100 images produces smoother confidence degradation curves compared to the 5-image evaluation. The steepness of initial drops (0-30\% deletion) remains consistent with Experiment 1, confirming that faithful attribution is a reproducible property across large sample sizes. IG and Grad-CAM maintain superior faithfulness, with confidence drops of 40-60\% after removing just 30\% of certified pixels.
-
-\textbf{Color modality remains the primary challenge.} Both APTOS and ISIC (color datasets) exhibit systematically lower robustness and more variable faithfulness compared to Brain MRI and Chest X-ray (grayscale datasets). This pattern holds even when controlling for sample size, architecture, and hyperparameters, suggesting that color information introduces fundamental challenges for attribution stability. Texture complexity and multi-channel dependencies appear to amplify attribution noise under perturbations.
-
-\paragraph{Persistent Faithfulness Concerns at Scale.}
-Scaling to 100 images per dataset does not resolve the erratic faithfulness patterns observed in Experiment 1. While averaging across more samples produces visually smoother aggregate curves, inspection of individual image-level deletion curves reveals that the underlying issues persist:
-
-\begin{itemize}
-\item \textbf{Averaging masks individual failures:} Many images still exhibit flat or non-monotonic curves. The smooth aggregate curves in the figures result from averaging over diverse failure modes, not from consistent faithful behavior across images.
-\item \textbf{RISE and Occlusion show minimal faithfulness impact:} Even after 80-90\% pixel deletion, confidence often remains above 50\%, indicating that these methods' certified pixels are largely irrelevant to predictions.
-\item \textbf{LRP's sharp curves may reflect annotation artifacts:} LRP sometimes shows steep drops, but visual inspection suggests it may be identifying texture edges or color boundaries rather than diagnostically relevant regions.
-\end{itemize}
-
-Combined with the grid localization failures (where most methods achieve GridPG near or below the theoretical random expectation of 0.25), these observations suggest that the certification framework may be fundamentally limited when applied to medical images without stronger model training or attribution method redesign.
-
-
-\paragraph{Effect of Increasing the Number of Samples.}
-Increasing the number of evaluated samples in Experiment~2 did not lead to a qualitative change in the observed certification trends. The relative robustness ordering across datasets remained consistent with Experiment~1, with Brain MRI exhibiting the highest certification rates, followed by Chest X-ray and ISIC, and Fundus remaining the most challenging. Similarly, the monotonic decrease in certification as the certified pixel fraction $K$ increased was preserved. This indicates that the robustness patterns identified in the small-scale setting generalize to larger evaluations and are not artifacts of limited sample selection.
-
-
-
 \section{Grid-Based Localization: Implementation Details}
 
-This section presents the grid-based evaluation framework for testing whether certified attributions correctly localize to known target regions. We build $2\times2$ grids from ISIC images, placing a different class in each cell. The target cell is index 0 (top-left), and the target class is the class placed there. We generate 100 grid images per split and derive a binary target mask for the target cell. These grids are then passed through the same attribution and smoothing pipeline (Algorithms~1-3), and the certified maps are scored using the GridPG metric defined below.
+This section presents the grid-based evaluation framework for testing whether certified attributions correctly localize to known target regions. $2\times2$ grids are built from ISIC images, placing a different class in each cell. The target cell is index 0 (top-left), and the target class is the class placed there. A total of 100 grid images per split are generated and a binary target mask is derived for the target cell. These grids are then passed through the same attribution + smoothing pipeline as shown in Figure \ref{fig:grid_cert1}--\ref{fig:grid_cert3}, and the certified maps are scored using GridPG.
 
 
 \subsection{Grid Dataset Construction}
 
-Grid images are synthetic $2 \times 2$ compositions of individual lesion images from different classes, as described in Algorithm~\ref{alg:grid_generation}. Each grid has a known target cell (top-left) whose class determines the grid's label. Images are sampled randomly from class pools, not based on model confidence. If a class pool is exhausted, it is refilled and reshuffled. Cell 0 (top-left) is always the target across all grids.
+Grid images are synthetic $2 \times 2$ compositions of individual lesion images from different classes. Each grid has a known target cell (top-left) whose class determines the grid's label. This approach follows the grid-based evaluation framework proposed by Rao et al.~\citep{rao2022understanding}. Images are sampled randomly from class pools, not based on model confidence. If a class pool is exhausted, it is refilled and reshuffled. Cell 0 (top-left) is always the target across all grids.
 
 \begin{algorithm}[H]
 \caption{Grid Dataset Generation}
@@ -991,30 +997,55 @@ Grid images are synthetic $2 \times 2$ compositions of individual lesion images 
 \STATE Shuffle each pool: $P_c \leftarrow \text{shuffle}(P_c)$
 \STATE \textbf{Generate each grid}
 \FOR{$i = 1$ to $N$}
-    \STATE \textbf{// Sample classes}
+    \STATE \textbf{ Sample classes}
     \STATE $\mathcal{C} \leftarrow$ sample $m \times m$ distinct classes without replacement
     \STATE Randomly permute $\mathcal{C}$ and assign to cells: $\{c_0, c_1, c_2, c_3\}$
-    \STATE \textbf{// Set target}
-    \STATE $y_i \leftarrow c_t$ \quad // Label = class in target cell (top-left, $t=0$)
-    \STATE \textbf{// Build grid image}
+    \STATE \textbf{ Set target}
+    \STATE $y_i \leftarrow c_t$ \quad  Label = class in target cell (top-left, $t=0$)
+    \STATE \textbf{ Build grid image}
     \STATE Initialize $G_i \in \mathbb{R}^{3 \times 448 \times 448}$
     \FOR{cell $j = 0$ to $m^2-1$}
         \STATE Pop image index from pool: $\text{idx} \leftarrow P_{c_j}.\text{pop}()$
-        \STATE Load image: $x \leftarrow D[\text{idx}].\text{image}$ \quad // $224 \times 224$
+        \STATE Load image: $x \leftarrow D[\text{idx}].\text{image}$ \quad  $224 \times 224$
         \STATE Compute cell position: $(r, c) = (j \div m, j \mod m)$
         \STATE Place in grid: $G_i[:, r \cdot 224:(r+1) \cdot 224, c \cdot 224:(c+1) \cdot 224] \leftarrow x$
     \ENDFOR
-    \STATE \textbf{// Create ground-truth mask}
+    \STATE \textbf{ Create ground-truth mask}
     \STATE $M_i \in \{0,1\}^{448 \times 448}$, all zeros
-    \STATE $M_i[0:224, 0:224] \leftarrow 1$ \quad // Mark target cell (top-left)
+    \STATE $M_i[0:224, 0:224] \leftarrow 1$ \quad  Mark target cell (top-left)
 \ENDFOR
 \RETURN $\{(G_i, y_i, M_i)\}_{i=1}^N$
 \end{algorithmic}
 \end{algorithm}
 
+\begin{figure}[htbp]
+    \centering
+    
+    \begin{subfigure}[t]{0.32\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{data sample/grids1.png}
+        \caption{Grid Sample 1}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.32\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{data sample/grids2.png}
+        \caption{Grid Sample 2}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.32\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{data sample/grids3.png}
+        \caption{Grid Sample 3}
+    \end{subfigure}
+    
+    \caption{Representative grid data samples used for localization evaluation.}
+    \label{fig:grid_samples}
+\end{figure}
+
 \subsection{Multi-Head Model}
 
-Instead of training a model on grid images, we load a pre-trained single-head ResNet-18 checkpoint (trained on individual $224 \times 224$ lesion images) into a multi-head architecture, as described in Algorithm~\ref{alg:multihead_init}. This approach enables localization evaluation without requiring grid-specific training.
+Instead of training a model on grid images, a pre-trained single-head ResNet-18 checkpoint (trained on individual $224 \times 224$ lesion images) is loaded into a multi-head architecture.
 
 \begin{algorithm}[H]
 \caption{Multi-Head Model Initialization with Checkpoint Reuse}
@@ -1039,7 +1070,8 @@ Instead of training a model on grid images, we load a pre-trained single-head Re
 
 \subsection{DiFull Attribution Wrapper}
 
-The DiFull wrapper (Algorithm~\ref{alg:difull_wrapper}) modifies how the model processes grid images during attribution. Unlike cropping (which was never used during our evaluation), it passes the full grid through the backbone and extracts logits from the target head. Since the full grid enters the backbone, gradients $\nabla_G z$ can flow to \emph{all} pixels. The backbone was trained on individual lesions, so its features naturally respond most strongly to lesion-like patterns. When the target head is applied to full-grid features, attribution should concentrate on the target cell (which contains a lesion) and ignore other cells. We know the correct region (top-left cell), and the GridPG metric measures whether certified pixels align with this known target.
+The DiFull wrapper modifies how the model processes grid images during attribution, based on the methodology developed by Rao et al.~\citep{rao2022understanding}. Unlike cropping (which was not used in this evaluation), it passes the full grid through the backbone and extracts logits from the target head. Since the full grid enters the backbone, gradients $\nabla_G z$ can flow to \emph{all} pixels. The backbone was trained on individual lesions, so its features naturally respond most strongly to lesion-like patterns. When the target head is applied to full-grid features, attribution should concentrate on the target cell (which contains a lesion) and ignore other cells.
+The correct region (top-left cell) is known. GridPG measures whether certified pixels align with this known target.
 
 
 
@@ -1049,31 +1081,29 @@ The DiFull wrapper (Algorithm~\ref{alg:difull_wrapper}) modifies how the model p
 \begin{algorithmic}[1]
 \REQUIRE Multi-head model $f_{\text{multi}}$, target head index $h_t=0$, full grid image $G \in \mathbb{R}^{3 \times 448 \times 448}$
 \ENSURE Logits $z \in \mathbb{R}^C$ for target cell
-\STATE \textbf{// Forward pass: full grid through backbone}
-\STATE $\phi(G) \leftarrow f_{\text{multi}}.\text{backbone}(G)$ \quad // Global features from full $448 \times 448$ grid
-\STATE \textbf{// Apply target head}
-\STATE $z \leftarrow f_{\text{multi}}.\text{heads}[h_t](\phi(G))$ \quad // Logits from head 0
+\STATE \textbf{ Forward pass: full grid through backbone}
+\STATE $\phi(G) \leftarrow f_{\text{multi}}.\text{backbone}(G)$ \quad  Global features from full $448 \times 448$ grid
+\STATE \textbf{ Apply target head}
+\STATE $z \leftarrow f_{\text{multi}}.\text{heads}[h_t](\phi(G))$ \quad  Logits from head 0
 \RETURN $z$
 \end{algorithmic}
 \end{algorithm}
 
+
 \subsection{Certified Grid Evaluation GridPG Metric}
 
-The Certified GridPG score quantifies localization accuracy:
+The Grid Pointing Game (GridPG) metric \citep{rao2022understanding} measures localization accuracy by computing the fraction of certified pixels in the correct cell:
 $$
 \text{GridPG} = \frac{\#\{\text{certified-1 pixels in target cell}\}}{\#\{\text{all certified-1 pixels}\}}
 $$
-\textbf{GridPG = 1.0:} Perfect localization—all certified important pixels are in the target cell. \textbf{GridPG = 0.25:} Random baseline for $2\times2$ grid (1/4 cells). \textbf{GridPG < 0.25:} Misleading—certified pixels concentrate in \emph{wrong} cells, worse than random.
+\textbf{GridPG = 1.0:} explains perfect localization that is all certified important pixels are in the target cell. while \textbf{GridPG < 0.25:} explains misleading effect that is certified pixels concentrate in \emph{wrong} cells, worse than random.
+\subsubsection{Observations}
 
-\subsection{Grid ISIC Localization Results}
-
-Grid-based evaluation was conducted on 100 synthetic $2 \times 2$ grid images constructed from ISIC skin lesion samples. Each grid contains four different lesion classes, with the target class always placed in the top-left cell (cell 0). Certification was performed using the same randomized smoothing protocol ($\sigma=0.15$, $n=100$, $\tau=0.75$) across all attribution methods at three sparsity levels ($K=\{5\%, 25\%, 50\%\}$).
-
-Table~\ref{tab:grid_isic_localization} presents the Certified GridPG scores for all attribution methods. Higher scores indicate better alignment between certified important pixels and the known target region.
+The grid-based localization results in Table~\ref{tab:grid_isic_localization} reveal significant limitations in the certified attribution framework when applied to synthetic multi-region images. Most methods achieve GridPG scores near or below the theoretical random expectation of 0.25 (for a $2\times2$ grid where each cell has equal probability), with three methods (IntegratedGradients at $K=25\%$ and $K=5\%$, RISE at all $K$ values) scoring exactly 0.0, indicating complete localization failure as shown in Figures \ref{fig:grid_cert1}--\ref{fig:grid_cert3}.
 
 \begin{table}[H]
 \centering
-\caption{Grid ISIC Localization Results: Certified GridPG Scores. Values indicate the fraction of certified important pixels that correctly localize to the target cell. Theoretical random expectation for $2\times2$ grid would be 0.25 (1/4 cells).}
+\caption{Grid ISIC Localization Results: Certified GridPG Scores. Higher values indicate better alignment with the target cell. Values indicate the fraction of certified important pixels that correctly localize to the target cell. Theoretical random expectation for $2\times2$ grid would be 0.25 (1/4 cells).}
 \label{tab:grid_isic_localization}
 \begin{tabular}{lccc}
 \toprule
@@ -1087,43 +1117,75 @@ RISE                 & 0.0000          & 0.0000          & 0.0000 \\
 \bottomrule
 \end{tabular}
 \end{table}
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\linewidth]{certifcation/grid_cert1.png}
+    \caption{Grid Images Certificate Attribution Sample 1}
+    \label{fig:grid_cert1}
+\end{figure}
 
-\paragraph{Critical Analysis of Grid Localization Performance.}
-The grid-based localization results reveal significant limitations in the certified attribution framework when applied to synthetic multi-region images. Most methods achieve GridPG scores near or below the theoretical random expectation of 0.25 (for a $2\times2$ grid where each cell has equal probability), with three methods (IntegratedGradients at $K=25\%$ and $K=5\%$, RISE at all $K$ values) scoring exactly 0.0, indicating complete localization failure.
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{certifcation/grid_cert2.png}
+    \caption{Grid Images Certificate Attribution Sample 2}
+    \label{fig:grid_cert2}
+\end{figure}
 
-\textbf{RISE consistently fails to produce any certified important pixels in the target region.} Across all sparsity levels, RISE achieves GridPG = 0.0, meaning that none of its certified pixels align with the known ground truth location. This catastrophic failure suggests that RISE's stochastic masking procedure produces highly unstable attribution maps under randomized smoothing. The method's reliance on random occlusion patterns appears fundamentally incompatible with certification, as small input perturbations drastically alter which masks contribute to the final attribution.
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{certifcation/grid_cert3.png}
+    \caption{Grid Images Certificate Attribution Sample 2}
+    \label{fig:grid_cert3}
+\end{figure}
+
+
+
+\textbf{RISE consistently fails to produce any certified important pixels in the target region.} Across all sparsity levels, RISE achieves GridPG = 0.0, meaning that none of its certified pixels align with the known ground truth location. This catastrophic failure suggests that RISE's stochastic masking procedure produces highly unstable attribution maps under randomized smoothing. The method's reliance on random occlusion patterns appears fundamentally incompatible with certification on this dataset, as small input perturbations drastically alter which masks contribute to the final attribution.
 
 \textbf{IntegratedGradients also fails at higher sparsity levels ($K=25\%$ and $K=5\%$).} While IG performed well on standard medical images in Experiments 1 and 2, it achieves 0.0 GridPG on grid images for sparse settings. This breakdown may stem from the grid structure confusing gradient-based attribution: the model's gradients distribute across multiple lesion-containing cells rather than concentrating on the target cell, and sparsification then selects pixels from incorrect regions.
 
-\textbf{Even the best-performing methods barely exceed the theoretical random expectation.} GradCAM achieves the highest score (0.4204 at $K=5\%$), which is only moderately above the 0.25 theoretical random level (1/4 cells). Occlusion reaches 0.3542 at $K=25\%$, similarly modest. These low scores indicate that certified attributions do not reliably localize to known target regions, even when the ground truth mask is unambiguous.
+\textbf{GradCAM achieves the highest score} (0.4204 at $K=5\%$), which is only moderately above the 0.25 theoretical random level (1/4 cells). Occlusion reaches 0.3542 at $K=25\%$, similarly modest.
 
-\textbf{Certification visualizations exhibit extreme sparsity and abstention.} Qualitative inspection of certified attribution maps on grid images reveals that the vast majority of pixels are marked as "abstain" rather than receiving confident important/unimportant labels. The few certified pixels that do appear are scattered randomly across the grid rather than concentrating in the target cell. This suggests that the randomized smoothing procedure, when applied to grid images, produces highly inconsistent top-$K$ rankings that fail to reach the certification threshold $\tau=0.75$.
+Further certified attribution maps on grid images reveals that the vast majority of pixels are marked as "abstain" rather than receiving confident important/unimportant labels. The few certified pixels that do appear are scattered randomly across the grid rather than concentrating in the target cell and produces highly inconsistent top-$K$ rankings that fail to reach the certification threshold $\tau=0.75$.
 
 \paragraph{Potential Causes and Methodological Limitations.}
 Several factors may contribute to these poor localization results:
 
 \begin{enumerate}
-\item \textbf{Model-data mismatch:} The ResNet-18 backbone was trained on individual $224 \times 224$ lesion images, not on $448 \times 448$ grids. When confronted with a grid containing four distinct lesions, the model's internal representations may not align with the assumption that only one cell is relevant. The multi-head wrapper attempts to address this by selecting the target head, but the backbone's features are still derived from the full grid, potentially diffusing attention across all four cells.
+\item \textbf{Model-data mismatch:} The ResNet-18 backbone was trained on individual $224 \times 224$ lesion images, not on $448 \times 448$ grids. 
 
-\item \textbf{DiFull wrapper limitations:} Unlike cropping-based approaches, DiFull processes the entire grid through the backbone. While this allows gradients to flow to all pixels (necessary for full-image attribution), it also means that the backbone "sees" all four lesions simultaneously. Attribution methods may then distribute importance across multiple cells, and randomized smoothing further destabilizes this already-ambiguous signal.
+% When confronted with a grid containing four distinct lesions, the model's internal representations may not align with the assumption that only one cell is relevant. The multi-head wrapper attempts to address this by selecting the target head, but the backbone's features are still derived from the full grid, potentially diffusing attention across all four cells.
 
-\item \textbf{Insufficient training on grid structure:} The checkpoint was never fine-tuned or trained on grid images. The model's weights encode priors from single-lesion classification, which may be incompatible with the grid task. This mismatch likely reduces both prediction confidence and attribution coherence on grid images.
+\item \textbf{DiFull wrapper limitations:} DiFull processes the entire grid through the backbone. While this allows gradients to flow to all pixels, the backbone sees all four lesions simultaneously. Attribution methods may distribute importance across multiple cells, and randomized smoothing destabilizes this ambiguous signal.
+
+\item \textbf{Insufficient grid training:} The backbone was trained on single $224 \times 224$ lesions, not on $448 \times 448$ grids. Model weights encode priors from single-lesion classification, which may be incompatible with multi-lesion grid images. 
+
+% This mismatch likely reduces both prediction confidence and attribution coherence on grid images.
 
 \item \textbf{Attribution method assumptions violated:} Gradient-based methods assume a single dominant signal path from input to output. In grid images with four competing lesions, this assumption breaks down. Perturbation-based methods (RISE, Occlusion) rely on masking regions to observe prediction changes, but in grids, masking one cell may expose another lesion, confounding the importance signal.
 \end{enumerate}
 
-\textbf{Implications for faithfulness and robustness on standard medical images.} The grid evaluation casts doubt on the validity of certification results from Experiments 1 and 2. If certified attributions fail so dramatically on grid images with known ground truth, it raises the question: are the certified pixels on real medical images (ChestX-ray, Brain MRI, ISIC, APTOS) truly meaningful, or are they similarly arbitrary?
+\subsubsection{Implications for Faithfulness and Robustness on Standard Medical Images} 
 
-Revisiting the faithfulness curves from Experiments 1 and 2 with this skepticism reveals additional concerns. Many faithfulness curves exhibit erratic behavior—either remaining nearly flat (indicating that removing "certified important" pixels barely affects the model's confidence) or showing extreme non-monotonic oscillations (confidence increases after deleting pixels, then drops again). A proper faithfulness curve should decrease \emph{smoothly and monotonically} as more important pixels are removed. The observed irregularities suggest that:
+Grid evaluation results cast doubt on certification validity from Experiments 1 and 2. If certified attributions fail dramatically on grid images with known ground truth, it raises the question: are certified pixels on real medical images truly meaningful, or are they similarly arbitrary?
+
+Revisiting faithfulness curves from Experiments 1 and 2 with this skepticism reveals additional concerns. Many curves remain nearly flat (removing "certified" pixels barely affects confidence) or show extreme non-monotonic oscillations (confidence increases then drops). Proper curves should decrease \emph{smoothly and monotonically}. These irregularities suggest:
 
 \begin{itemize}
-\item \textbf{Certified pixels may not be genuinely important.} Flat curves indicate that the model's decision does not actually depend on the certified regions, contradicting the attribution method's claims.
-\item \textbf{Randomized smoothing may amplify noise rather than reveal robust structure.} The certification process, instead of filtering out unstable attributions, may be certifying random pixel patterns that happen to be consistent across noisy samples by chance.
-\item \textbf{Model training quality may be insufficient.} If the underlying classifiers are not strongly confident or rely on spurious correlations, their attribution maps will be inherently unstable regardless of the certification method.
+\item \textbf{Certified pixels may not be genuinely important:} Flat curves indicate decisions do not depend on certified regions.
+\item \textbf{Randomized smoothing may amplify noise:} Certification may certify random patterns consistent by chance rather than revealing robust structure.
+\item \textbf{Model training may be insufficient:} Weak confidence or spurious correlations produce inherently unstable attributions regardless of certification method.
 \end{itemize}
 
-These findings suggest that pixel-level certification via randomized smoothing, while theoretically sound, may require substantially stronger model training, more careful hyperparameter tuning, or fundamentally different attribution methods to achieve practical utility in medical imaging applications.
+These findings suggest that pixel-level certification via randomized smoothing, while theoretically sound, may require substantially stronger model training, more careful hyperparameter tuning, or fundamentally different attribution methods accuracy on different datasets to achieve practical utility in medical imaging applications.
 
+
+\section{Conclusion}
+This project implemented pixel-level certified attributions across four medical imaging datasets and evaluated robustness, faithfulness, and localization under a unified randomized smoothing protocol. The experiments confirm that certification becomes harder as the sparsity level increases and that gradient-based methods (Integrated Gradients, Grad-CAM) are generally more robust than perturbation-based methods (RISE, Occlusion, LRP). However, the grid-based localization study reveals a critical limitation: certified pixels frequently fail to align with known ground-truth regions, and several methods collapse to zero localization scores. Faithfulness curves further show erratic or flat behavior in many cases, suggesting that certified pixels are often not truly decision-relevant.
+
+Overall, the results indicate that while certification provides formal robustness guarantees, the practical utility of certified attributions in medical imaging remains limited under current training and attribution settings. Improving model calibration, training on grid-structured data, and developing attribution methods that are intrinsically stable under perturbations appear necessary before certified explanations can reliably support clinical interpretation.
+
+\bibliography{custom}
 
 \end{document}
 
