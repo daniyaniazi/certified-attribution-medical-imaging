@@ -31,6 +31,10 @@
 % the typewriter font.
 \usepackage{inconsolata}
 \usepackage{graphicx} 
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{float}
+\usepackage{placeins}
 
 % If the title and author information does not fit in the area allocated, uncomment the following
 %
@@ -38,7 +42,7 @@
 %
 % and set <dim> to something 5cm or larger.
 
-\title{Pixel-Level Certified Explanations via Randomized Smoothing: Seminar Report}
+\title{Seminar Report: Pixel-Level Certified Explanations via Randomized Smoothing}
 
 
 \author{Daniya Niazi \\
@@ -54,122 +58,331 @@ Universit{\"a}t des Saarlandes}
 % \end{abstract} 
 
 \section{Introduction}
-Deep neural networks achieve high accuracy in medical imaging, yet their decisions are often opaque. Post-hoc attribution methods provide heatmaps that highlight pixels influencing a prediction, but these explanations can be unstable. A small, imperceptible perturbation to the input can drastically change the attribution map while the predicted class stays the same. This undermines trust and complicates method comparison. The paper \emph{Pixel-level Certified Explanations via Randomized Smoothing} proposes a certification framework that delivers per-pixel robustness guarantees for any black-box attribution method. Instead of returning a single image-level robustness score, it outputs certified pixel-wise labels: robustly important, robustly unimportant, or abstain.
 
-This report motivates the problem, surveys related work, details the proposed method, and discusses its strengths, limitations, and broader implications, assuming basic ML knowledge.
+Deep neural networks achieve high accuracy in medical imaging, yet their decisions are often opaque. Post-hoc attribution methods produce heatmaps highlighting influential pixels, but these explanations can be unstable: small perturbations may drastically change the heatmap while the predicted class remains unchanged. This undermines trust and complicates comparison across methods. 
+
+The paper \emph{Pixel-level Certified Explanations via Randomized Smoothing} proposes a framework that provides per-pixel robustness guarantees for any black-box attribution method \cite{anani2025pixel}. Instead of a single image-level score, it outputs certified pixel-wise labels: robustly important, robustly unimportant, or abstain.
+
 
 \section{Background}
 \subsection{Post-hoc Attribution Methods}
-Attribution methods map an input image to a heatmap of pixel importance with respect to a predicted class. Three broad families dominate the literature: \textit{gradient-based} methods (e.g., saliency, Guided Backpropagation, Integrated Gradients) that differentiate the output with respect to the input; \textit{activation-based} methods (e.g., CAM and Grad-CAM variants) that combine class-specific weights with feature maps; and \textit{perturbation-based} methods (e.g., Occlusion, RISE) that measure output changes under masked inputs. These methods are widely used because they are fast and easy to apply to trained models.
+Attribution methods map an input image to a heatmap of pixel importance with respect to a predicted class. Three broad families dominate the literature: \textit{gradient-based} methods (e.g., saliency, Guided Backpropagation, Integrated Gradients); \textit{activation-based} methods (e.g., Grad-CAM variants); and \textit{perturbation-based} methods (e.g., Occlusion, RISE) . These methods are widely used because they are fast and easy to apply to trained models.
 
-\subsection{Limitation of Post-hoc Attribution Methods}
-Despite their popularity, attribution maps are fragile. Prior work shows that explanations can be manipulated or destabilized by minimal input noise, model reparameterization, or adversarial perturbations. Importantly, the classifier can remain unchanged while the explanation changes substantially. This makes it hard to rely on explanations in safety-critical domains and complicates quantitative comparisons across methods.
+\subsection{Limitations of Post-hoc Attribution Methods}
 
-\subsection{Robustness}
-In this context, robustness means stability of the explanation under bounded input perturbations. Existing approaches often quantify robustness using global similarity measures between attribution maps. However, a global score does not reveal which specific pixels are reliable. The paper argues that pixel-level guarantees are essential because local failures can be hidden by image-level metrics.
+Despite their popularity, post-hoc attribution methods exhibit fundamental robustness limitations. Prior work has shown that attribution maps can change substantially under small input perturbations, even when the classifier prediction remains unchanged.Ghorbani et al.~\cite{ghorbani2019fragile} demonstrated that adversarial perturbations can dramatically alter saliency maps while preserving the model output as shown in Figure \ref{fig:adversial_pertubation}, i.e., $f(x)=f(x')$ but $h(x)\neq h(x')$. Dombrowski et al.~\cite{dombrowski2019explanations} explained this instability by linking it to high curvature of decision boundaries, which causes sharp gradient fluctuations under small $\ell_2$ perturbations.
+Subramanya et al.~\cite{subramanya2019fooling} showed that explanations can be intentionally manipulated to highlight arbitrary image regions without affecting the prediction, and Zhang et al.~\cite{zhang2020interpretable} demonstrated that models can be trained to produce misleading yet plausible explanations while maintaining predictive accuracy.
+Kindermans et al.~\cite{kindermans2019reliability} further showed that certain attribution methods violate implementation invariance, changing under model reparameterizations that preserve the input-output function.
 
-\section{Existing Methods}
-\subsection{Certified Robustness for Explanations}
-Several lines of work use randomized smoothing or differential privacy to bound the similarity between clean and perturbed attribution maps. These methods typically certify a lower bound on top-$k$ overlap or ranking stability of important pixels. The guarantees are usually image-level (one number per image) and thus coarse for visual interpretability.
-
-\subsection{Randomized Smoothing for Structured Outputs}
-Randomized smoothing is a certification technique that transforms a base model into a smoothed classifier by injecting Gaussian noise and taking a majority vote. It provides $\ell_2$-robustness guarantees for classification. Recent extensions apply smoothing to segmentation, where each pixel output can be certified or abstained, enabling structured, component-wise robustness guarantees. The target paper leverages this segmentation perspective for attribution maps.
-
-\section{Pixel-level Certified Explanations via Randomized Smoothing}
-\subsection{Main Idea}
-The core idea is to reinterpret an attribution map as a binary segmentation mask. Pixels in the top $K\%$ of attribution values are labeled ``important'' and the rest ``unimportant.'' This binary view turns the attribution function into a segmentation model, which can then be certified with randomized smoothing for segmentation.
-
-\subsection{Sparsified Attribution Function}
-Given an attribution function $h(x) \in \mathbb{R}^N$, the sparsified version $h_K(x) \in \{0,1\}^N$ assigns 1 to pixels among the top $K\%$ and 0 otherwise. This preserves ranking rather than magnitude, aligning with how heatmaps are typically interpreted (``highlight the most important pixels''). The sparsification parameter $K$ controls granularity: small $K$ yields a sparse, focused mask, while large $K$ yields a more diffuse explanation.
-
-\subsection{Smoothed Sparsified Attribution}
-To certify $h_K$, the method draws noisy samples $x + \epsilon$ with $\epsilon \sim \mathcal{N}(0, \sigma^2 I)$, computes $h_K$ for each sample, and estimates per-pixel probabilities of being labeled 1 or 0. A pixel is certified as 1 (important) if its probability exceeds a threshold $\tau$; likewise for 0. Otherwise the method abstains. This yields a certified attribution map with three labels: important, unimportant, and abstain.
-
-\paragraph{\textbf{Certified Radius.}}
-The pixel-level guarantee holds within an $\ell_2$ radius $R = \sigma \Phi^{-1}(\tau)$, where $\Phi^{-1}$ is the inverse standard Gaussian CDF. Larger $\sigma$ and higher $\tau$ increase robustness but also increase abstention.
-
-\paragraph{\textbf{Interpretation of Abstain.}}
-Abstention does not indicate that a pixel is unimportant. It indicates that the method cannot certify its label under the chosen noise and threshold. This conservative stance avoids overclaiming robustness.
-
-\paragraph{\textbf{Applicability.}}
-Because the approach only requires access to the attribution output (not internal gradients), it applies to any black-box attribution method.
-
-\section{Evaluation and Results}
-The paper evaluates 12 attribution methods across CNNs and a ViT. It introduces three metrics and analyzes trade-offs between robustness, localization, and faithfulness.
-
-\begin{table}[h!]
-\centering
-\caption{Summary of the three evaluation metrics used for certified attributions.}
-\begin{tabularx}{\linewidth}{|X|X|X|}
-\hline
-\textbf{Metric} & \textbf{What it measures} & \textbf{Why it matters} \\
-\hline
-\% certified & Fraction of pixels certified as 0 or 1 & Direct robustness indicator; higher is more stable \\
-\hline
-Certified GridPG & Certified localization on grid images & Tests whether robust pixels align with the correct subimage \\
-\hline
-Faithfulness (deletion) & Confidence drop after removing certified top-$K$ pixels & Evaluates whether certified pixels truly support the prediction \\
-\hline
-\end{tabularx}
-\label{tab:probmodel}
-\end{table}
-
-\subsection{Key Findings}
-The results show that LRP and RISE provide the best balance between robustness and localization across settings. Robustness generally improves at deeper layers, but some gradient-based methods exhibit high robustness with poor localization due to grid-like patterns. The paper emphasizes the robustness--localization trade-off: a method can be stable yet not meaningful.
-
-\subsubsection{Effect of Certification Strictness}
-Increasing $\tau$ (the certification threshold) reduces the % certified across methods but can improve localization, since only the most confident pixels remain certified. This illustrates a tunable trade-off between coverage and precision.
-
-\section{Visualization Placeholder}
-\begin{figure}[h]
+Kuppa and Le-Khac~\cite{kuppa2020blackbox} and Carmichael and Scheirer~\cite{carmichael2023unfooling} extended these concerns to model-agnostic explainers such as LIME and SHAP, demonstrating that perturbation-based explanations can also be destabilized or adversarially fooled.
+\begin{figure}
     \centering
-    \includegraphics[width=1\linewidth]{.png}
-    \caption{Placeholder for a certified attribution visualization (e.g., overlayed top-$K$ certified pixels).}
-    \label{fig:enter-label}
+    \includegraphics[width=0.8\linewidth]{report_img/attr_pertub.png}
+    \caption{Adversarial attack against feature-importance maps}
+    \label{fig:adversial_pertubation}
 \end{figure}
 
-\section{Implementation and Experiment}
-\subsection{Task: Segmentation}
-The method reframes attribution as a two-class segmentation task over pixels. This is the key conceptual step that enables pixel-wise certification using existing randomized smoothing results for segmentation.
+% Collectively, these works establish that explanation robustness does not follow from prediction robustness. Attribution maps can be fragile, manipulable, and sensitive to minimal perturbations, limiting their reliability in safety-critical domains.
 
-\subsection{Algorithm Workflow}
-For each input image: (i) compute the base attribution map, (ii) sparsify it into a binary mask using $K$, (iii) add Gaussian noise to the input and repeat the attribution computation multiple times, (iv) estimate per-pixel class probabilities, and (v) certify pixels according to $\tau$.
+\section{Existing Methods}
 
-\subsubsection{Sparsification}
-Sparsification binarizes the attribution by ranking pixel scores. It is simple and model-agnostic, but it discards magnitude information. The choice of $K$ determines the focus and stability of the certified map.
+\subsection{Empirical Robustness Improvements}
 
-\subsubsection{Smoothing}
-Smoothing injects Gaussian noise to obtain a distribution of sparsified attributions. The certification depends on the number of samples, $\sigma$, and $\tau$. More samples yield tighter estimates but higher compute cost.
+Following the discovery that attribution maps are highly unstable, several works attempted to improve explanation robustness through empirical strategies. Chen et al.~\cite{chen2019robust} introduced attribution regularization during training, encouraging explanations to remain consistent under small perturbations of the input. By incorporating explanation stability directly into the loss function, their method reduced sensitivity of gradient-based attributions. Similarly, Dombrowski et al.~\cite{dombrowski2022towards} proposed training procedures that smooth gradients to mitigate geometric instability, and Wang et al.~\cite{wang2020smoothed} applied Gaussian smoothing to explanations to reduce high-frequency fluctuations.
 
-\subsection{Experiments and Outcome}
-The experiments report certified maps and quantitative metrics on ImageNet-scale models. The paper highlights that RISE and LRP are consistently strong across robustness, localization, and faithfulness metrics, while some activation-based methods perform well only at the final layer.
+These approaches improve stability in practice, but robustness remains empirical, method-dependent, and without formal guarantees on the perturbation radius under which explanations remain unchanged.
 
-\subsection{Dataset}
-The primary evaluations are conducted on ImageNet images selected for high-confidence predictions. For grid-based localization, images are arranged into 2$\times$2 grids to evaluate Certified GridPG.
+\subsection{Certified Attribution (Image-Level)}
 
-\subsection{Evaluation Method}
-\subsubsection{\% certified}
-Measures the proportion of pixels that are certified (not abstained). High values indicate robust, stable explanations under the chosen radius.
+To move beyond heuristic improvements, Levine et al.~\cite{levine2019certifiably} introduced the first certified robustness framework for explanations using randomized smoothing. Their method certifies a lower bound on the overlap between the top-$k$ most important features of clean and perturbed inputs within an $\ell_2$-bounded neighborhood. This provided the first probabilistic guarantee that important features remain stable under noise. Liu et al.~\cite{liu2022renyi} later strengthened these guarantees using Rényi differential privacy to obtain tighter bounds, and Wang and Kong~\cite{wang2023practical,wang2024certified} derived worst-case deviation bounds on attribution maps in norm space.
 
-\subsubsection{\% Certified GridPG}
-Computes localization of certified top-$K$ pixels within the correct subimage. It is a robustness-aware extension of the standard Grid Pointing Game.
+While these works provide formal certification, the guarantees remain image-level. Robustness is summarized by a single similarity score or norm bound per image, without identifying which individual pixels are provably stable. As a result, spatial interpretability of certified regions is still lacking.
 
-\subsubsection{\% Faithfulness}
-Assesses the drop in class confidence after removing certified top-$K$ pixels. A steep drop suggests that certified pixels are causally relevant to the prediction.
+\subsection{Segmentation Certification}
+
+Fischer et al.~\cite{fischer2021scalable} extended randomized smoothing to structured outputs in segmentation tasks. Instead of certifying a single global prediction, their method certifies each output component independently, marking pixels as either robust or abstained if no guarantee can be provided. This demonstrates that pixel-wise certification is possible for high-dimensional outputs under $\ell_2$ perturbations.
+
+However, attribution maps produce continuous importance scores rather than discrete class labels, making segmentation-style certification not directly applicable. Bridging this gap requires reformulating attribution as a segmentation problem to enable per-pixel robustness guarantees.
+
+
+\section{Pixel-level Certified Explanations via Randomized Smoothing}
+
+This section explains the workflow used to generate pixel-level certified attribution maps.
+The method combines \textbf{sparsification} and \textbf{randomized smoothing} to determine
+which pixels have attribution labels that are provably stable under bounded input perturbations.
+
+\subsection{Problem Setting}
+Let $f : \mathbb{R}^{C \times H \times W} \rightarrow \mathcal{Y}$ be a trained image classifier
+and $h : \mathbb{R}^{C \times H \times W} \rightarrow \mathbb{R}^{N}$ be an attribution method
+that produces a real-valued heatmap for an input image $x$, where $N = H \cdot W$.
+Our goal is to certify, for each pixel independently, whether its attribution label
+remains unchanged under small $\ell_2$ perturbations of the input.
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1\linewidth]{report_img/certified_algo.png}
+    \caption{Pixel-level certified explanations via random
+ized smoothing.}
+    \label{fig:placeholder}
+\end{figure}
+
+
+\subsection{Component I: Sparsification}
+Attribution heatmaps are continuous‑valued and sensitive to noise. To obtain a discrete representation, the heatmap is sparsified. Given a heatmap $h(x)$ and a sparsification level $K$, the top $K\%$ of pixels with the highest attribution values are labeled as \emph{important} (1), and the remaining pixels are labeled as \emph{unimportant} (0). This produces a binary attribution map $h_K(x) \in \{0,1\}^N$. 
+
+Let $h_f(x) = (a_1, \dots, a_N)$ be attribution scores and let $\mathrm{rank}(a_i)$ denote the descending rank of pixel $i$. For $K \in (0,100]$, define:
+
+$$
+h_K(x)_i =
+\begin{cases}
+1 & \text{if } \mathrm{rank}(a_i) \le \left\lceil \frac{K}{100} N \right\rceil, \\
+0 & \text{otherwise}.
+\end{cases}
+$$
+The parameter $K$ controls granularity: smaller values yield focused explanations, while larger values produce broader masks.
+Thus, $h_K(x) \in \{0,1\}^N$ assigns each pixel to either the \emph{important} or \emph{unimportant} class.
+Sparsification preserves the relative importance ranking of pixels while discarding unstable magnitude information. 
+
+\subsection{Component II: Randomized Smoothing}
+
+To assess robustness, the sparsified attribution is evaluated under noisy versions of the input image. Gaussian noise is added directly to the image,
+
+$$
+\epsilon \sim \mathcal{N}(0, \sigma^2 I),
+$$
+
+and the attribution pipeline (heatmap computation followed by sparsification) is recomputed for the perturbed input $x+\epsilon$. This process is repeated independently for $n$ samples.
+
+\paragraph{Noisy attribution sampling.}
+For a fixed pixel $i$, define the Bernoulli random variable
+
+$$
+Z_i = h_K(x+\epsilon)_i.
+$$
+
+\paragraph{Class probabilities.}
+The probability that pixel $i$ belongs to class $c \in \{0,1\}$ under noise is
+
+$$
+p_c(i) = \mathbb{P}_{\epsilon \sim \mathcal{N}(0, \sigma^2 I)}\left(Z_i = c\right).
+$$
+
+\paragraph{Certified pixel label.}
+Given a confidence threshold $\tau \in [0.5,1)$, the certified attribution map $\hat{h}_{\tau,K}(x) \in \{1,0,\varnothing\}^N$ is defined as
+
+$$
+\hat{h}_{\tau,K}(x)_i =
+\begin{cases}
+1 & \text{if } p_1(i) > \tau, \\
+0 & \text{if } p_0(i) > \tau, \\
+\varnothing & \text{otherwise}.
+\end{cases}
+$$
+
+Pixels labeled $\varnothing$ are \emph{abstained} and receive no robustness guarantee.
+
+\subsubsection{Interpretation of Abstention}
+Abstention does not indicate that a pixel is unimportant.
+It indicates that, under the chosen noise level and threshold,
+there is insufficient statistical evidence to certify the pixel’s label.
+This conservative behavior prevents misleading robustness claims.
+
+
+\subsection{Certified Attribution Algorithm}
+
+
+\begin{algorithm}[H]
+\caption{Pixel-level Certified Attribution}
+\label{alg:pixel_cert}
+\begin{algorithmic}[1]
+\REQUIRE Input image $x$, attribution method $h$, sparsification level $K$, noise level $\sigma$, threshold $\tau$, number of samples $n$
+\ENSURE Certified attribution map $\hat{h}_{\tau,K}(x)$ and certified radius $R$
+
+\STATE Initialize counters $c_1(i) \gets 0$ and $c_0(i) \gets 0$ for all pixels $i$
+\FOR{$t = 1$ to $n$}
+  \STATE Sample noise $\epsilon_t \sim \mathcal{N}(0,\sigma^2 I)$
+  \STATE Compute heatmap $h(x+\epsilon_t)$
+  \STATE Sparsify to binary mask $h_K(x+\epsilon_t)$
+  \FOR{each pixel $i$}
+    \IF{$h_K(x+\epsilon_t)_i = 1$}
+      \STATE $c_1(i) \gets c_1(i) + 1$
+    \ELSE
+      \STATE $c_0(i) \gets c_0(i) + 1$
+    \ENDIF
+  \ENDFOR
+\ENDFOR
+
+\FOR{each pixel $i$}
+  \STATE $p_1(i) \gets c_1(i)/n$, \quad $p_0(i) \gets c_0(i)/n$
+  \IF{$p_1(i) > \tau$}
+    \STATE $\hat{h}_{\tau,K}(x)_i \gets 1$
+  \ELSIF{$p_0(i) > \tau$}
+    \STATE $\hat{h}_{\tau,K}(x)_i \gets 0$
+  \ELSE
+    \STATE $\hat{h}_{\tau,K}(x)_i \gets \varnothing$
+  \ENDIF
+\ENDFOR
+
+\STATE $R \gets \sigma \cdot \Phi^{-1}(\tau)$
+\RETURN $\hat{h}_{\tau,K}(x), R$
+\end{algorithmic}
+\end{algorithm}
+
+
+\subsection{Certified Robustness Guarantee}
+The algorithm outputs a certified attribution map
+
+$$
+\hat{h}_{\tau,K}(x) \in \{1,0,\varnothing\}^N,
+$$
+
+where $\varnothing$ denotes abstention. For any non‑abstained pixel, the certified label is guaranteed invariant under any perturbation $\delta$ that satisfies
+
+$$
+\|\delta\|_2 \le R,\quad R = \sigma\,\Phi^{-1}(\tau).
+$$
+
+Here, $\|\delta\|_2$ is the Euclidean norm of the total input change, i.e., for a perturbed image $x'$, $\delta=x'-x$ and
+
+$$
+\|\delta\|_2 = \sqrt{\sum_j (x'_j - x_j)^2}.
+$$
+
+Thus, $R$ does not alter labels; it quantifies the **size of the robustness guarantee**: if the total input change is smaller than $R$, all certified 0/1 labels remain unchanged.
+
+\subsection{Impact of Hyperparameters}
+The method is governed by $(K,\sigma,\tau,n)$ and exhibits the following trade‑offs:
+\begin{itemize}
+\item \textbf{$K$ (sparsification)}: larger $K$ labels more pixels as important and tends to increase certifiability; smaller $K$ yields sharper focus but fewer certified pixels.
+\item \textbf{$\sigma$ (noise)}: larger $\sigma$ increases $R$ (larger guarantee) but raises variability, often increasing abstention.
+\item \textbf{$\tau$ (threshold)}: higher $\tau$ yields stricter certification and stronger guarantees, at the cost of reduced coverage.
+\item \textbf{$n$ (samples)}: larger $n$ reduces estimation variance and supports stricter $\tau$, but increases computation.
+\end{itemize}
+The framework is attribution‑agnostic and applies to any black‑box attribution method that produces pixel‑wise scores.
+
+
+
+\subsection{Evaluation Framework}
+The authors evaluation across three metrics. Each one answers a different question: (i) how many pixels are certifiably stable, (ii) whether certified important pixels fall in the correct region, and (iii) whether removing certified important pixels hurts the prediction. All metrics are computed from the certified map $\hat{h}_{\tau,K}(x)$ and the model output.
+
+\subsubsection{\% Certified (coverage)}
+This metric measures the amount of the image that is certified (i.e., not abstained). 
+Let $N=H\cdot W$ and use $\varnothing$ for abstention. Then
+
+$$
+\%\mathrm{certified}(x) = \frac{|\{i \mid \hat{h}_{\tau,K,i}(x) \neq \varnothing\}|}{N}.
+$$
+For each image, count all pixels labeled 0 or 1, divide by $N$, then average over images. A higher value means the method certifies more pixels under the chosen $(\sigma,\tau,n)$.
+
+\subsubsection{Certified Grid Pointing Game (Certified GridPG)}
+This metric checks localization on grid datasets (images split into $m\times m$ cells), based on GridPG \cite{bohle2021convolutional}. Suppose the correct cell is $c$ (In this cases the truth cell is fixed i,e cell 0). Let $x_i$ be the pixels in cell $i$, and define $A_c(p)=1$ if pixel $p$ is certified important (label 1), otherwise $0$. The certified localization score is
+
+$$
+cL_c = \frac{\sum_{p \in x_c} A_c(p)}{\sum_{j=1}^{m^2} \sum_{p \in x_j} A_c(p)}.
+$$
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{report_img/grid.png}
+    \caption{Certified Grid Example}
+    \label{fig:placeholder}
+\end{figure}
+
+For each image, sum certified-1 pixels inside the correct cell and divide by all certified-1 pixels in the image. If there are no certified-1 pixels, the image is skipped (or assigned 0 by convention). The final score is the mean across images.
+
+\subsubsection{Faithfulness via Certified Deletion}
+Faithfulness asks if the certified important pixels are truly used by the model. Let $S$ be the set of certified-1 pixels. Create a perturbed image $x^{\setminus S}$ by deleting or masking pixels in $S$ (e.g., set them to 0). The faithfulness score is the confidence drop for the predicted class $y$:
+
+$$
+\Delta f(x) = f_y(x) - f_y\big(x^{\setminus S}\big).
+$$
+For each image, remove the certified-1 pixels and measure how much the model’s confidence decreases. Larger drops indicate that the certified pixels carry predictive evidence.
+
+The paper reports these three metrics across multiple attribution methods to show the trade-off between coverage (robustness), localization, and causal relevance.
+
+% \begin{table}[h!]
+% \centering
+% \caption{Summary of the three evaluation metrics used for certified attributions.}
+% \begin{tabularx}{\linewidth}{|X|X|X|}
+% \hline
+% \textbf{Metric} & \textbf{What it measures} & \textbf{Why it matters} \\
+% \hline
+% \% certified & Fraction of pixels certified as 0 or 1 & Direct robustness indicator; higher is more stable \\
+% \hline
+% Certified GridPG & Certified localization on grid images & Tests whether robust pixels align with the correct subimage \\
+% \hline
+% Faithfulness (deletion) & Confidence drop after removing certified top-$K$ pixels & Evaluates whether certified pixels truly support the prediction \\
+% \hline
+% \end{tabularx}
+% \label{tab:probmodel}
+% \end{table}
+
+
+% \section{Visualization Placeholder}
+% \begin{figure}[h]
+%     \centering
+%     \includegraphics[width=1\linewidth]{.png}
+%     \caption{Placeholder for a certified attribution visualization (e.g., overlayed top-$K$ certified pixels).}
+%     \label{fig:enter-label}
+% \end{figure}
+
+\section{Implementation and Experiments}
+
+\subsection{Experimental Setup}
+ImageNet; ResNet-18, Wide ResNet-50-2, ResNet-152, VGG-11, ViT-B/16; $224\times224$ images; 100 high-confidence samples. Twelve attribution methods across backprop/activation/perturbation families (ViT omits LRP, CAM). Input and final spatial layers; deeper maps are upsampled. Defaults: $\sigma=0.15$, $n=100$, $\tau=0.75$, $\alpha=0.001$, so $R\approx0.10$. GridPG uses 2$\times$2 grids (448$\times$448), 100 grids per method.
+
+\subsection{Result Analysis}
+LRP and RISE are the most consistent across robustness, localization, and faithfulness. In Figure \ref{fig:paper_fig5}, they retain relatively high \% certified, especially at the input layer.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1\linewidth]{report_img/per_certified_fig_5.png}
+    \caption{Comparison of the per-pixel certification rate }
+    \label{fig:paper_fig5}
+\end{figure}
+
+In Figure \ref{fig:paper_fig6}, they also show strong Certified GridPG. In Figure~8, they cause steep confidence drops under deletion, indicating higher faithfulness. Together, these figures show they are both stable and meaningful.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1\linewidth]{report_img/per_grid_fig_6.png}
+    \caption{Comparison of the certified localization}
+    \label{fig:paper_fig6}
+\end{figure}
+
+
+
+The robustness--localization trade-off appears when comparing Figures \ref{fig:paper_fig5} and \ref{fig:paper_fig6}. Some methods are highly certified but poorly localized, so robustness alone is insufficient. Figure \ref{fig:paper_fig7} summarizes this balance.
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1\linewidth]{report_img/robvsloc.png}
+    \caption{robustness-localization trade-off}
+    \label{fig:paper_fig7}
+\end{figure}
+
+
+\subsubsection{Relationship Between $K$ and Layer Depth on \% Certified}
+Figures \ref{fig:paper_fig2} and \ref{fig:paper_fig5} show that smaller $K$ yields fewer, more focused certified pixels, while larger $K$ yields broader regions.
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{report_img/sparcification.png}
+    \caption{Certified Pixel at Different Sparsification Level (k)}
+    \label{fig:paper_fig2}
+\end{figure}
+
+At the input layer, small $K$ is unstable under noise and increases abstention; larger $K$ stabilizes the top set. At the final layer, smaller $K$ isolates discriminative regions and improves localization. Overall: larger $K$ helps input-layer stability; smaller $K$ helps deep-layer sharpness.
+
+\subsection{Outcome}
+Qualitative maps show smaller $K$ gives finer details, larger $K$ gives broader regions. Figure \ref{fig:paper_fig5} shows \% certified decreases as $R$ increases. Figure \ref{fig:paper_fig6} shows Certified GridPG improves when certified pixels concentrate in the correct cell. Faithfullness evaluation also shows that deletion sharply reduces confidence for LRP/RISE, matching their robustness and localization.
+
+
 
 \section{Limitations}
-\begin{itemize}
-    \item \textbf{Information loss:} sparsification discards attribution magnitudes, potentially hiding graded importance.
-    \item \textbf{Compute cost:} Monte Carlo sampling is expensive for large images and many methods.
-    \item \textbf{Threat model:} certification is limited to $\ell_2$-bounded perturbations, which may not capture realistic distribution shifts.
-    \item \textbf{Abstention trade-off:} strict thresholds increase abstention, reducing map coverage.
-\end{itemize}
+Sparsification discards magnitude information, so graded relevance can be lost. The method is also computationally heavy because certification requires many noisy samples per image. Its guarantees apply only to $\ell_2$-bounded noise and may not cover broader distribution shifts. Finally, stricter thresholds increase abstention, reducing certified coverage.
 
-\section{Personal Reflection}
-I find the reframing of attribution as a segmentation problem both elegant and practical. It leverages established theory for structured outputs to address a long-standing gap in explainability: pixel-wise robustness guarantees. The evaluation framework is also compelling because it surfaces trade-offs that are invisible in single-metric comparisons. My main concern is the computational cost and the reliance on sparsification, which may limit fine-grained interpretability in clinical practice. Nonetheless, the work is a meaningful step toward trustworthy explanations and should influence how attribution methods are evaluated going forward.
+\section{Reflection}
+Recasting attribution as segmentation is elegant and yields pixel-wise guarantees. The evaluation is strong because it separates robustness, localization, and faithfulness. My main concern is sampling: $n=100$ may be fine for $224\times224$ but could be insufficient for higher-resolution or fine-detail domains, while increasing $n$ is costly. Some trends are expected (e.g., smaller $K$ means fewer certified pixels); the more informative findings are the layer-wise and robustness--localization trade-offs. Overall, the framework is promising but faces scalability and sparsification limits.
 
-\section*{Acknowledgements}
-This report is based on the research paper \textit{Pixel-level Certified Explanations via Randomized Smoothing}. I thank the authors for their comprehensive work and Professor Jonas for supervision, which served as the foundation of this seminar report.
+% \section*{Acknowledgements}
+% This report is based on the research paper \textit{Pixel-level Certified Explanations via Randomized Smoothing}. I thank the authors for their comprehensive work and Professor Jonas for supervision, which served as the foundation of this seminar report.
 
 \bibliography{anthology,custom}
 \bibliographystyle{acl_natbib}
