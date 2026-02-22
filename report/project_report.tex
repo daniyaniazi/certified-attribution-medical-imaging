@@ -109,7 +109,7 @@ Jin et al.~(2022) \citep{jin2022evaluating} had 30 neurosurgeons evaluate 16 att
 % \item \textbf{No universal solution}: different methods excel under different perturbation types, indicating fundamental rather than engineering-level instability.
 % \end{itemize}
 
-% Panboonyuen (2026) \citep{panboonyuen2026faithfulness} focused on Grad-CAM's faithfulness, finding: localization accuracy collapses on Vision Transformers; feature ablation often fails to reduce confidence despite highlighted regions; and Grad-CAM frequently highlights spurious correlations (backgrounds, device artifacts).
+% Panboonyuen (2025) \citep{panboonyuen2025seeing} critically investigated Grad-CAM's faithfulness in lung cancer CT classification, finding: localization accuracy significantly degrades on Vision Transformers due to non-local attention mechanisms; substantial cross-architecture variability in saliency localization; and critical limitations in saliency-based XAI for medical imaging.
 
 \subsection{Prior Work Only Certifies Image-Level Metrics}
 
@@ -191,12 +191,12 @@ This section describes the medical imaging datasets used in this seminar project
 
 \subsubsection{ChestX-ray14}
 
-The ChestX-ray14 dataset consists of frontal chest radiographs acquired using X-ray transmission imaging. In this project, the task is formulated as a binary classification problem distinguishing pneumonia from normal cases. Chest X-rays are among the most frequently used diagnostic imaging tools worldwide, making them a high-impact and safety-critical application domain. Representative samples from the dataset are shown in Figure~\ref{fig:chestxray}.
+The ChestX-ray14 dataset consists of frontal chest radiographs acquired using X-ray transmission imaging. In this project, the task is formulated as a binary classification problem distinguishing pneumonia from normal cases. Chest X-ray imaging is among the most frequently used diagnostic imaging tools worldwide, making it a high-impact and safety-critical application domain. Representative samples from ChestX-ray14 are shown in Figure~\ref{fig:chestxray}.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{data sample/chestsample.png}
-    \caption{Representative samples from the ChestX-ray14 dataset showing normal and pneumonia cases.}
+    \caption{Representative samples from ChestX-ray14 showing normal and pneumonia cases.}
     \label{fig:chestxray}
 \end{figure}
 
@@ -314,7 +314,7 @@ ISIC Skin Lesion
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.7\linewidth]{confusion matrix/chestxray_confusion_matrix.png}
-\caption{Confusion Matrix - Chest X-ray}
+\caption{Confusion Matrix - ChestX-ray14}
 \end{figure}
 
 \begin{figure}[H]
@@ -508,18 +508,18 @@ This section presents qualitative attribution visualizations across datasets. Fo
 
 
 
-\subsubsection{Chest X-ray}
+\subsubsection{ChestX-ray14}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=1\linewidth]{attribution sample/chestattrsample1.png}
-\caption{Attribution visualizations for Chest X-ray Sample 1 using ResNet-18.}
+\caption{Attribution visualizations for ChestX-ray14 Sample 1 using ResNet-18.}
 \end{figure}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=1\linewidth]{attribution sample/chestattrsample2.png}
-\caption{Attribution visualizations for Chest X-ray Sample 2 using ResNet-18.}
+\caption{Attribution visualizations for ChestX-ray14 Sample 2 using ResNet-18.}
 \end{figure}
 
 
@@ -585,18 +585,18 @@ The same certification parameters ($\sigma$, $N$, $\tau$, and $K$ values) are ap
 \caption{Certification visualizations for Brain MRI Sample 2 using ResNet-18.}
 \end{figure}
 
-\subsubsection{Chest X-ray}
+\subsubsection{ChestX-ray14}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=1\linewidth]{certifcation/chest/resnet18_img117_paper_style.png}
-\caption{Certification visualizations for Chest X-ray Sample 1 using ResNet-18.}
+\caption{Certification visualizations for ChestX-ray14 Sample 1 using ResNet-18.}
 \end{figure}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=1\linewidth]{certifcation/chest/resnet18_img31_paper_style.png}
-\caption{Certification visualizations for Chest X-ray Sample 2 using ResNet-18.}
+\caption{Certification visualizations for ChestX-ray14 Sample 2 using ResNet-18.}
 \end{figure}
 
 
@@ -671,7 +671,7 @@ Experiment 1 evaluates all 4 architectures on a smaller subset (5 images per dat
 \resizebox{\textwidth}{!}{
 \begin{tabular}{llccc ccc ccc ccc}
 \toprule
-& & \multicolumn{3}{c}{\textbf{Chest X-ray}} 
+& & \multicolumn{3}{c}{\textbf{ChestX-ray14}} 
 & \multicolumn{3}{c}{\textbf{Brain MRI}} 
 & \multicolumn{3}{c}{\textbf{ISIC Skin}} 
 & \multicolumn{3}{c}{\textbf{Fundus}} \\
@@ -712,7 +712,7 @@ Experiment 1 evaluates all 4 architectures on a smaller subset (5 images per dat
 \end{tabular}
 }
 \end{table}
-As expected, certification accuracy decreases monotonically as the certified pixel fraction $K$ increases, reflecting the increasing difficulty of guaranteeing robustness for larger attribution regions.Among all, Brain MRI consistently achieves the highest certification rates, while fundus and ISIC exhibit lower robustness due to class difference, color and texture complexity. 
+Consistent with theoretical expectations, certification rates decrease monotonically as the certified pixel fraction $K$ increases, reflecting the increasing difficulty of guaranteeing robustness for larger attribution regions. Across all methods, Brain MRI consistently achieves the highest certification rates, while Fundus and ISIC exhibit lower robustness due to class imbalance, color and texture complexity. 
 
 
 \begin{table}[h!]
@@ -725,7 +725,7 @@ As expected, certification accuracy decreases monotonically as the certified pix
 \midrule
 Brain MRI   & 67.96 & 300 \\
 ISIC Skin  & 55.47 & 300 \\
-Chest X-ray & 55.25 & 300 \\
+ChestX-ray14 & 55.25 & 300 \\
 Fundus     & 51.8 & 300 \\
 \midrule
 \textbf{Overall} & \textbf{57.31} & \textbf{1200} \\
@@ -745,7 +745,7 @@ Table \ref{tab:exp1_model_avg} demonstrate that \textbf{architecture choice has 
 \textbf{Dataset} & \textbf{ResNet-18} & \textbf{DenseNet-121} & \textbf{MobileNetV2} & \textbf{EfficientNet-B1} \\
 \midrule
 Brain MRI   & 68.28 & 68.61 & \textbf{71.49} & 63.47 \\
-Chest X-ray & \textbf{59.70} & 51.8 & 51.74 & 58.86 \\
+ChestX-ray14 & \textbf{59.70} & 51.8 & 51.74 & 58.86 \\
 ISIC Skin  & 55.72 & 54.67 & 54.40 & \textbf{57.07} \\
 Fundus     & 48.83 & 46.41 & \textbf{54.22} & 52.86 \\
 \bottomrule
@@ -772,7 +772,7 @@ The robustness evaluation reveals that \textbf{certification robustness decrease
 \begin{figure}[H]
 \centering
 \includegraphics[width=1\linewidth]{experiment1/robustness/chestxray/robustness_stacked.png}
-\caption{Robustness certification results for Chest X-ray across four ResNet-18 architectures for 5 images.}
+\caption{Robustness certification results for ChestX-ray14 across four ResNet-18 architectures for 5 images.}
 \end{figure}
 
 \begin{figure}[H]
@@ -803,7 +803,7 @@ Finally Figure \ref{fig:exp_1_dataset_cert} shows, \textbf{dataset characteristi
 Many faithfulness curves exhibit concerning patterns despite expected declining trends. Ideally, curves should decrease \emph{smoothly and monotonically}: removing certified important pixels should steadily reduce confidence. However, observed curves show:
 
 \begin{itemize}
-\item \textbf{Flat or near-flat curves:} Removing up to 50-70\% of "certified important" pixels produces minimal confidence drop ($<10\%$). This suggests these pixels are not genuinely important to the model's decision, contradicting the attribution.
+\item \textbf{Flat or near-flat curves:} Removing up to 50-70\% of "certified important" pixels produces minimal confidence drop ($<10\%$). This suggests the model's predictions do not strongly depend on these certified regions, contradicting the attribution method's emphasis.
 \item \textbf{Non-monotonic behavior:} Confidence \emph{increases} after deleting certain pixel fractions, then drops again. This counter-intuitive pattern indicates that some certified pixels may actually be \emph{suppressing} the prediction or that the deletion baseline introduces spurious signals.
 \item \textbf{High inter-method variance:} On the same image, different attribution methods produce radically different curve shapes, suggesting attribution instability rather than robust signal.
 \end{itemize}
@@ -819,7 +819,7 @@ These irregularities raise the possibility that randomized smoothing may be \emp
 \begin{figure}[H]
 \centering
 \includegraphics[width=1\linewidth]{experiment1/faithfullness/chestxray/faithfulness_confidence_curves.png}
-\caption{Faithfulness confidence curves for Chest X-ray across four ResNet-18 architectures for 5 images at $K=\{5\%,25\%,50\%\}$.}
+\caption{Faithfulness confidence curves for ChestX-ray14 across four ResNet-18 architectures for 5 images at $K=\{5\%,25\%,50\%\}$.}
 \end{figure}
 
 \begin{figure}[H]

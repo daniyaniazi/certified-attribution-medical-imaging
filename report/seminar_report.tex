@@ -262,7 +262,7 @@ The framework is attribution‑agnostic and applies to any black‑box attributi
 
 
 \subsection{Evaluation Framework}
-The authors evaluation across three metrics. Each one answers a different question: (i) how many pixels are certifiably stable, (ii) whether certified important pixels fall in the correct region, and (iii) whether removing certified important pixels hurts the prediction. All metrics are computed from the certified map $\hat{h}_{\tau,K}(x)$ and the model output.
+The authors evaluated three metrics. Each one answers a different question: (i) how many pixels are certifiably stable, (ii) whether certified important pixels fall in the correct region, and (iii) whether removing certified important pixels hurts the prediction. All metrics are computed from the certified map $\hat{h}_{\tau,K}(x)$ and the model output.
 
 \subsubsection{\% Certified (coverage)}
 This metric measures the amount of the image that is certified (i.e., not abstained). 
@@ -274,7 +274,7 @@ $$
 For each image, count all pixels labeled 0 or 1, divide by $N$, then average over images. A higher value means the method certifies more pixels under the chosen $(\sigma,\tau,n)$.
 
 \subsubsection{Certified Grid Pointing Game (Certified GridPG)}
-This metric checks localization on grid datasets (images split into $m\times m$ cells), based on GridPG \cite{bohle2021convolutional}. Suppose the correct cell is $c$ (In this cases the truth cell is fixed i,e cell 0). Let $x_i$ be the pixels in cell $i$, and define $A_c(p)=1$ if pixel $p$ is certified important (label 1), otherwise $0$. The certified localization score is
+This metric checks localization on grid datasets (images split into $m\times m$ cells), based on GridPG \cite{bohle2021convolutional}. Suppose the correct cell is $c$ (in this case, the ground-truth cell is fixed at cell 0). Let $x_i$ be the pixels in cell $i$, and define $A_c(p)=1$ if pixel $p$ is certified important (label 1), otherwise $0$. The certified localization score is
 
 $$
 cL_c = \frac{\sum_{p \in x_c} A_c(p)}{\sum_{j=1}^{m^2} \sum_{p \in x_j} A_c(p)}.
