@@ -1,9 +1,7 @@
 """Model factory for ResNet, DenseNet, EfficientNet and MobileNet.
 
-Enhancements:
 - Adds optional extra fully-connected layers, BatchNorm1d and Dropout
   in the classifier head to improve classification performance.
-- Adds MobileNet-v2 support.
 - Keeps ImageNet pretrained weights by default (pretrained=True).
 """
 from typing import Tuple
